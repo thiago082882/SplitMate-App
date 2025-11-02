@@ -1,0 +1,52 @@
+name: Android CI - SplitMate
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build & Test SplitMate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: gradle
+
+      - name: Rodar Lint
+        run: ./gradlew lintDebug
+
+      - name: Rodar Testes Unitários
+        run: ./gradlew testDebugUnitTest
+
+      - name: Rodar Testes de UI (Instrumented)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: default
+          script: ./gradlew connectedDebugAndroidTest
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload Relatórios
+        uses: actions/upload-artifact@v4
+        with:
+          name: Relatorios-SplitMate
+          path: |
+            app/build/reports/
+            app/build/outputs/apk/debug/
+
+      - name: Finalizado
+        run: echo "Build e testes do SplitMate concluídos com sucesso!"
