@@ -12,81 +12,59 @@ jobs:
   lint:
     runs-on: macos-latest
     steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-
-      - name: Dar permissão de execução para gradlew
-        run: chmod +x ./gradlew
-
-      - name: Configurar JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - run: chmod +x ./gradlew
+      - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: gradle
-
-      - name: Rodar Lint
-        run: ./gradlew lintDebug
-
-      - name: Upload Lint Report
-        uses: actions/upload-artifact@v4
+      - run: ./gradlew lintDebug
+      - uses: actions/upload-artifact@v4
         with:
           name: lint.html
           path: app/build/reports/lint-results-debug.html
 
   # 2️⃣ Unit Tests
   unit-test:
-    needs: [lint]
+    needs: lint
     runs-on: macos-latest
     steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-
-      - name: Dar permissão de execução para gradlew
-        run: chmod +x ./gradlew
-
-      - name: Configurar JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - run: chmod +x ./gradlew
+      - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: gradle
-
-      - name: Rodar Testes Unitários
-        run: ./gradlew testDebugUnitTest
-
-      - name: Upload Testes Unitários
-        uses: actions/upload-artifact@v4
+      - run: ./gradlew testDebugUnitTest
+      - uses: actions/upload-artifact@v4
         with:
           name: unit-test-report
           path: app/build/reports/tests/testDebugUnitTest/
 
-  # 3️⃣ Instrumentation Tests (UI)
+  # 3️⃣ Instrumentation Tests (UI) - Ubuntu runner
   instrumentation-test:
-    needs: [unit-test]
-    runs-on: macos-latest
+    needs: unit-test
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-
-      - name: Dar permissão de execução para gradlew
-        run: chmod +x ./gradlew
-
-      - name: Configurar JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - run: chmod +x ./gradlew
+      - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: gradle
 
-      - name: Rodar Instrumentation Tests
+      - name: Run Android Emulator & Instrumentation Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 33          
-          arch: arm64-v8a            
+          api-level: 33
+          arch: x86_64
           target: google_apis
           emulator-options: "-no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-load"
           disable-animations: true
+          boot-timeout: 600 # aumenta timeout do boot
           script: |
             echo "Esperando emulador inicializar..."
             adb wait-for-device
@@ -94,63 +72,47 @@ jobs:
             adb shell input keyevent 82
             ./gradlew connectedDebugAndroidTest
 
-      - name: Upload Testes Instrumentados
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: instrumentation-test-report
           path: app/build/reports/androidTests/connected/
 
   # 4️⃣ Análise Estática (opcional SonarCloud)
   static-code-analysis:
-    needs: [instrumentation-test]
+    needs: instrumentation-test
     runs-on: macos-latest
     steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-
-      - name: Configurar JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: gradle
-
-      - name: SonarCloud Scan
-        run: ./gradlew app:sonarqube -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+      - run: ./gradlew app:sonarqube -Dsonar.login=${{ secrets.SONAR_TOKEN }}
         env:
-           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # 5️⃣ Build APK
   package:
-    needs: [static-code-analysis]
+    needs: static-code-analysis
     runs-on: macos-latest
     steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-
-      - name: Dar permissão de execução para gradlew
-        run: chmod +x ./gradlew
-
-      - name: Configurar JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - run: chmod +x ./gradlew
+      - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: gradle
-
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - run: ./gradlew assembleDebug --stacktrace
+      - uses: actions/upload-artifact@v4
         with:
           name: SplitMate-debug.apk
           path: app/build/outputs/apk/debug/app-debug.apk
 
   # 6️⃣ Finalizado
   finalizado:
-    needs: [package]
+    needs: package
     runs-on: macos-latest
     steps:
-      - name: Finalizado
-        run: echo "Build e testes do SplitMate concluídos com sucesso!"
+      - run: echo "Build e testes do SplitMate concluídos com sucesso!"
