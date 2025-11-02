@@ -1,6 +1,10 @@
-name: Android CI - SplitMate - UI Only
+name: Android CI - SplitMate
 
 on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
   workflow_dispatch:
 
 jobs:
