@@ -7,6 +7,13 @@ on:
     branches: [ master, main ]
   workflow_dispatch:
 
+env:
+  SONAR_HOST_URL: https://sonarcloud.io
+  SONAR_ORGANIZATION: ajitsing
+  SONAR_PROJECT_KEY: ajitsing_ExpenseManager
+  SONAR_PROJECT_NAME: Expense-Manager
+  SONAR_SOURCES: ./src/main
+
 jobs:
   lint:
     runs-on: macos-latest
@@ -78,7 +85,7 @@ jobs:
               sleep 5
             done
             adb shell input keyevent 82
-            ./gradlew connectedDebugAndroidTest
+            ./gradlew connectedDebugAndroidTest --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
@@ -96,10 +103,17 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
           cache: gradle
-      - run: chmod +x ./gradlew
-      - run: ./gradlew app:sonarqube -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+      - name: Run SonarCloud Analysis
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          ./gradlew app:sonarqube \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }} \
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} \
+            -Dsonar.projectName=${{ env.SONAR_PROJECT_NAME }} \
+            -Dsonar.sources=${{ env.SONAR_SOURCES }}
 
   package:
     needs: static-code-analysis
