@@ -10,7 +10,7 @@ jobs:
       # Checkout da branch main
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: main   # força a branch main
 
       # Dar permissão no gradlew
       - run: chmod +x ./gradlew
@@ -31,14 +31,13 @@ jobs:
           target: google_apis
           emulator-options: "-no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -fast-boot"
           disable-animations: true
-          emulator-boot-timeout: 600 # menos tempo, em segundos
+          emulator-boot-timeout: 600
           script: |
             echo "Aguardando inicialização do emulador..."
             adb kill-server
             adb start-server
             adb wait-for-device
 
-            # Boot check rápido (30 iterações de 5s)
             echo "Verificando boot completo..."
             for i in $(seq 1 30); do
               BOOT_COMPLETED=$(adb shell getprop sys.boot_completed | tr -d '\r')
