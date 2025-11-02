@@ -75,15 +75,17 @@ jobs:
             adb start-server
             adb wait-for-device
             echo "Verificando boot completo..."
-            for i in {1..60}; do
-              BOOT_COMPLETED=$(adb shell getprop sys.boot_completed | tr -d '\r')
+            bash -c 'for i in $(seq 1 60); do
+              BOOT_COMPLETED=$(adb shell getprop sys.boot_completed | tr -d "\r")
               if [ "$BOOT_COMPLETED" = "1" ]; then
                 echo "Emulador pronto!"
-                break
+                exit 0
               fi
               echo "Esperando 5s..."
               sleep 5
             done
+            echo "Falha ao inicializar o emulador a tempo"
+            exit 1'
             adb shell input keyevent 82
             ./gradlew connectedDebugAndroidTest --stacktrace
 
