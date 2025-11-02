@@ -83,6 +83,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      - run: chmod +x ./gradlew     
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
