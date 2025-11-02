@@ -31,7 +31,7 @@ jobs:
       - name: Upload Lint Report
         uses: actions/upload-artifact@v4
         with:
-          name: lint-report
+          name: lint.html
           path: app/build/reports/lint-results-debug.html
 
   # 2️⃣ Unit Tests
@@ -113,11 +113,10 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      # Descomente se usar SonarCloud
-      # - name: SonarCloud Scan
-      #   run: ./gradlew app:sonarqube -Dsonar.login=${{ secrets.SONAR_TOKEN }}
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: SonarCloud Scan
+        run: ./gradlew app:sonarqube -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+        env:
+           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # 5️⃣ Build APK
   package:
