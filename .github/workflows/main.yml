@@ -82,10 +82,10 @@ jobs:
       - name: Rodar Instrumentation Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
+          api-level: 33            # Atualizado para 33
           arch: x86_64
           target: google_apis
-          emulator-options: "-no-window -no-audio -no-boot-anim -no-snapshot-load"
+          emulator-options: "-no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-load"
           disable-animations: true
           script: |
             echo "Esperando emulador inicializar..."
