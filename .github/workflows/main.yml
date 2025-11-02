@@ -31,7 +31,7 @@ jobs:
       - name: Upload Lint Report
         uses: actions/upload-artifact@v4
         with:
-          name: lint-report
+          name: lint.html
           path: app/build/reports/lint-results-debug.html
 
   # 2️⃣ Unit Tests
@@ -84,12 +84,14 @@ jobs:
         with:
           api-level: 30
           arch: x86_64
-          target: default
-          emulator-options: "-no-window -no-audio -no-boot-anim"
+          target: google_apis
+          emulator-options: "-no-window -no-audio -no-boot-anim -no-snapshot-load"
           disable-animations: true
           script: |
             echo "Esperando emulador inicializar..."
             adb wait-for-device
+            adb shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done;'
+            adb shell input keyevent 82
             ./gradlew connectedDebugAndroidTest
 
       - name: Upload Testes Instrumentados
