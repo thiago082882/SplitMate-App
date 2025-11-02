@@ -4,13 +4,20 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.Modifier
 
 @Composable
-fun AmountText(amount: Double, color: Color = Color(0xFF5D5FEF), fontSize: Int = 36) {
+fun AmountText(
+    amount: Double,
+    color: Color = Color(0xFF5D5FEF),
+    fontSize: Int = 36,
+    modifier: Modifier = Modifier
+) {
     Text(
         text = "R$ %.2f".format(amount).replace(".", ","),
         color = color,
         fontSize = fontSize.sp,
-        fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold
+        fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold,
+        modifier = modifier
     )
 }

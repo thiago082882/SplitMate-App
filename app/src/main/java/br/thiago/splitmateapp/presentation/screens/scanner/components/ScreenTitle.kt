@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 
 @Composable
 fun ScreenTitle(text: String, modifier: Modifier = Modifier) {
@@ -17,6 +18,6 @@ fun ScreenTitle(text: String, modifier: Modifier = Modifier) {
         color = Color.White,
         fontWeight = FontWeight.SemiBold,
         textAlign = TextAlign.Center,
-        modifier = modifier
+        modifier = modifier.testTag("pixScannerTitle"),
     )
 }

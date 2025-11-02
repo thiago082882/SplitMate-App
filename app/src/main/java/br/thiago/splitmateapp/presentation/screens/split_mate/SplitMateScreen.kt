@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import br.thiago.splitmateapp.domain.model.Split
@@ -30,7 +31,8 @@ fun SplitMateScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 24.dp),
+            .padding(horizontal = 16.dp, vertical = 24.dp)
+            .testTag("splitMateRoot"),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         SplitMateTitle()
@@ -39,10 +41,14 @@ fun SplitMateScreen(
             text = "Sua divisão de contas automática.",
             fontSize = 14.sp,
             color = Color(0xFF7D7D7D),
-            paddingBottom = 24.dp
+            paddingBottom = 24.dp,
+            modifier = Modifier.testTag("subtitleText")
         )
 
-        MainButton(text = "Escanear QR do Pix", onClick = onScanClick)
+        MainButton(
+            text = "Escanear QR do Pix",
+            onClick = onScanClick
+        )
 
         Spacer(modifier = Modifier.height(28.dp))
 
@@ -54,9 +60,13 @@ fun SplitMateScreen(
             AppText(
                 text = "Histórico Recente",
                 fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.testTag("historyTitle")
             )
-            TextButton(onClick = onViewAllClick) {
+            TextButton(
+                onClick = onViewAllClick,
+                modifier = Modifier.testTag("btnViewAll")
+            ) {
                 Text(
                     text = "Ver Tudo",
                     fontSize = 14.sp,
@@ -70,13 +80,15 @@ fun SplitMateScreen(
 
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxWidth()
+            modifier =
+                Modifier.fillMaxWidth()
+                    .testTag("historyList")
         ) {
             items(historyList) { item ->
                 HistoryCard(
                     splitItem = item,
                     onShare = { onShareClick(item) },
-                    onDelete = { onDeleteClick(item) }
+                    onDelete = { onDeleteClick(item) },
                 )
             }
         }

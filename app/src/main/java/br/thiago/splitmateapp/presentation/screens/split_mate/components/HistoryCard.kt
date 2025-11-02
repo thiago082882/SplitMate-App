@@ -1,13 +1,6 @@
 package br.thiago.splitmateapp.presentation.screens.split_mate.components
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -23,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,17 +26,19 @@ import br.thiago.splitmateapp.domain.model.Split
 fun HistoryCard(
     splitItem: Split,
     onShare: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .shadow(
                 elevation = 3.dp,
                 shape = RoundedCornerShape(12.dp),
                 ambientColor = Color(0x11000000),
                 spotColor = Color(0x11000000)
-            ),
+            )
+            .testTag("historyCard_${splitItem.id}"),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
@@ -55,7 +51,8 @@ fun HistoryCard(
             Text(
                 text = splitItem.date,
                 color = Color.Gray,
-                fontSize = 13.sp
+                fontSize = 13.sp,
+                modifier = Modifier.testTag("historyDate_${splitItem.id}")
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -65,15 +62,22 @@ fun HistoryCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+
                 Text(
                     text = "R$ ${"%.2f".format(splitItem.total)}",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black
+                    color = Color.Black,
+                    modifier = Modifier.testTag("historyTotal_${splitItem.id}")
                 )
 
                 Row {
-                    IconButton(onClick = onShare, modifier = Modifier.size(24.dp)) {
+                    IconButton(
+                        onClick = onShare,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .testTag("historyShare_${splitItem.id}")
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Share,
                             contentDescription = "Compartilhar",
@@ -81,7 +85,12 @@ fun HistoryCard(
                             modifier = Modifier.size(18.dp)
                         )
                     }
-                    IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .testTag("historyDelete_${splitItem.id}")
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Excluir",
@@ -107,7 +116,8 @@ fun HistoryCard(
                 Text(
                     text = "${splitItem.people} pessoas • R$ ${"%.2f".format(splitItem.perPerson)} por pessoa",
                     fontSize = 14.sp,
-                    color = Color.Gray
+                    color = Color.Gray,
+                    modifier = Modifier.testTag("historyPeople_${splitItem.id}")
                 )
             }
         }

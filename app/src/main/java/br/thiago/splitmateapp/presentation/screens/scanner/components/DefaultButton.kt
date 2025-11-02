@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -16,7 +17,8 @@ import androidx.compose.ui.unit.sp
 fun DefaultButton(
     text: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    testTag: String? = null
 ) {
     Button(
         onClick = onClick,
@@ -25,6 +27,7 @@ fun DefaultButton(
         modifier = modifier
             .fillMaxWidth()
             .height(48.dp)
+            .then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
     ) {
         Text(
             text = text,

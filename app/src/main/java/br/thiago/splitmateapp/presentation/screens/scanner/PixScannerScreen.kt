@@ -55,7 +55,7 @@ fun PixScannerScreen(
                 ScreenTitle("Escanear QR do Pix")
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Scanner central
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
