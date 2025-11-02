@@ -1,42 +1,46 @@
-name: Android CI - SplitMate
+name: Android CI - SplitMate - UI Quick
 
 on:
-  push:
-    branches: [ master, main ]
-  pull_request:
-    branches: [ master, main ]
   workflow_dispatch:
 
 jobs:
-  instrumentation-test:
+  ui-test:
     runs-on: ubuntu-latest
     steps:
+      # Checkout da branch main
       - uses: actions/checkout@v4
         with:
           ref: main
+
+      # Dar permissão no gradlew
       - run: chmod +x ./gradlew
+
+      # Setup Java
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: gradle
 
+      # Rodar emulador e testes
       - name: Start Emulator & Run UI Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 33
           arch: x86_64
           target: google_apis
-          emulator-options: "-no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-load -verbose"
+          emulator-options: "-no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -fast-boot"
           disable-animations: true
-          emulator-boot-timeout: 900
+          emulator-boot-timeout: 600 # menos tempo, em segundos
           script: |
             echo "Aguardando inicialização do emulador..."
             adb kill-server
             adb start-server
             adb wait-for-device
+
+            # Boot check rápido (30 iterações de 5s)
             echo "Verificando boot completo..."
-            for i in $(seq 1 60); do
+            for i in $(seq 1 30); do
               BOOT_COMPLETED=$(adb shell getprop sys.boot_completed | tr -d '\r')
               if [ "$BOOT_COMPLETED" = "1" ]; then
                 echo "Emulador pronto!"
@@ -45,9 +49,11 @@ jobs:
               echo "Aguardando 5s..."
               sleep 5
             done
+
             adb shell input keyevent 82
             ./gradlew connectedDebugAndroidTest --stacktrace
 
+      # Upload do relatório
       - uses: actions/upload-artifact@v4
         with:
           name: instrumentation-test-report
