@@ -38,7 +38,12 @@ jobs:
           api-level: 30
           arch: x86_64
           target: default
-          script: ./gradlew connectedDebugAndroidTest
+          emulator-options: "-no-window -no-audio -no-boot-anim" # ajuda CI
+          disable-animations: true
+          script: |
+            echo "Esperando emulador inicializar..."
+            adb wait-for-device
+            ./gradlew connectedDebugAndroidTest
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace
