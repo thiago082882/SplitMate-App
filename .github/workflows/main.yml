@@ -8,10 +8,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build & Test SplitMate
+  # 1️⃣ Lint
+  lint:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
@@ -29,32 +28,128 @@ jobs:
       - name: Rodar Lint
         run: ./gradlew lintDebug
 
+      - name: Upload Lint Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: app/build/reports/lint-results-debug.html
+
+  # 2️⃣ Unit Tests
+  unit-test:
+    needs: [lint]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Dar permissão de execução para gradlew
+        run: chmod +x ./gradlew
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: gradle
+
       - name: Rodar Testes Unitários
         run: ./gradlew testDebugUnitTest
 
-      - name: Rodar Testes de UI (Instrumented)
+      - name: Upload Testes Unitários
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: app/build/reports/tests/testDebugUnitTest/
+
+  # 3️⃣ Instrumentation Tests (UI)
+  instrumentation-test:
+    needs: [unit-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Dar permissão de execução para gradlew
+        run: chmod +x ./gradlew
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: gradle
+
+      - name: Rodar Instrumentation Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
           arch: x86_64
           target: default
-          emulator-options: "-no-window -no-audio -no-boot-anim" # ajuda CI
+          emulator-options: "-no-window -no-audio -no-boot-anim"
           disable-animations: true
           script: |
             echo "Esperando emulador inicializar..."
             adb wait-for-device
             ./gradlew connectedDebugAndroidTest
 
+      - name: Upload Testes Instrumentados
+        uses: actions/upload-artifact@v4
+        with:
+          name: instrumentation-test-report
+          path: app/build/reports/androidTests/connected/
+
+  # 4️⃣ Análise Estática (opcional SonarCloud)
+  static-code-analysis:
+    needs: [instrumentation-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: gradle
+
+      # Descomente se usar SonarCloud
+      # - name: SonarCloud Scan
+      #   run: ./gradlew app:sonarqube -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 5️⃣ Build APK
+  package:
+    needs: [static-code-analysis]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Dar permissão de execução para gradlew
+        run: chmod +x ./gradlew
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: gradle
+
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload Relatórios
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Relatorios-SplitMate
-          path: |
-            app/build/reports/
-            app/build/outputs/apk/debug/
+          name: SplitMate-debug.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
 
+  # 6️⃣ Finalizado
+  finalizado:
+    needs: [package]
+    runs-on: ubuntu-latest
+    steps:
       - name: Finalizado
         run: echo "Build e testes do SplitMate concluídos com sucesso!"
