@@ -19,14 +19,10 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class SplitPaymentBottomSheetKtTest {
 
-
-
     @get:Rule
     val composeRule = createComposeRule()
 
     private val totalAmount = 120.0
-
-
 
     @Test
     fun bottomSheet_displaysAllElements() {

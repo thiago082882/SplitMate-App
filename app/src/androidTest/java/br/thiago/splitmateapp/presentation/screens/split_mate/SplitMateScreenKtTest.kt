@@ -8,7 +8,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
-import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.runner.AndroidJUnit4
 import br.thiago.splitmateapp.domain.model.Split
 import br.thiago.splitmateapp.presentation.navigation.TestableNavGraph
 import org.junit.Before
@@ -19,7 +19,6 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class SplitMateScreenTest {
-
 
 
     @get:Rule

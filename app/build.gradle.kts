@@ -18,8 +18,8 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-      //  testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        testInstrumentationRunner = "br.thiago.splitmateapp.HiltTestRunner"
+       testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+       // testInstrumentationRunner = "br.thiago.splitmateapp.HiltTestRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
