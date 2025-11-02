@@ -1,58 +1,43 @@
-name: Android CI - SplitMate - UI Quick
+name: Android CI - SplitMate
 
 on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
   workflow_dispatch:
 
 jobs:
-  ui-test:
+  instrumentation-test:
+    needs: ui-test
     runs-on: ubuntu-latest
     steps:
-      # Checkout da branch main
       - uses: actions/checkout@v4
-        with:
-          ref: main   # força a branch main
 
-      # Dar permissão no gradlew
       - run: chmod +x ./gradlew
 
-      # Setup Java
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: gradle
 
-      # Rodar emulador e testes
-      - name: Start Emulator & Run UI Tests
+      - name: Run Android Emulator & Instrumentation Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 33
           arch: x86_64
           target: google_apis
-          emulator-options: "-no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -fast-boot"
+          emulator-options: "-no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-load"
           disable-animations: true
-          emulator-boot-timeout: 600
+          boot-timeout: 600
           script: |
-            echo "Aguardando inicialização do emulador..."
-            adb kill-server
-            adb start-server
+            echo "Esperando emulador inicializar..."
             adb wait-for-device
-
-            echo "Verificando boot completo..."
-            for i in $(seq 1 30); do
-              BOOT_COMPLETED=$(adb shell getprop sys.boot_completed | tr -d '\r')
-              if [ "$BOOT_COMPLETED" = "1" ]; then
-                echo "Emulador pronto!"
-                break
-              fi
-              echo "Aguardando 5s..."
-              sleep 5
-            done
-
+            adb shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done;'
             adb shell input keyevent 82
-            ./gradlew connectedDebugAndroidTest --stacktrace
+            ./gradlew connectedDebugAndroidTest
 
-      # Upload do relatório
       - uses: actions/upload-artifact@v4
         with:
           name: instrumentation-test-report
