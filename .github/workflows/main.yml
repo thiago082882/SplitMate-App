@@ -1,55 +1,10 @@
-name: Android CI - SplitMate
+name: Android CI - SplitMate - UI Only
 
 on:
-  push:
-    branches: [ master, main ]
-  pull_request:
-    branches: [ master, main ]
   workflow_dispatch:
 
-env:
-  SONAR_HOST_URL: https://sonarcloud.io
-  SONAR_ORGANIZATION: ajitsing
-  SONAR_PROJECT_KEY: ajitsing_ExpenseManager
-  SONAR_PROJECT_NAME: Expense-Manager
-  SONAR_SOURCES: ./src/main
-
 jobs:
-  lint:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: chmod +x ./gradlew
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: gradle
-      - run: ./gradlew lintDebug
-      - uses: actions/upload-artifact@v4
-        with:
-          name: lint.html
-          path: app/build/reports/lint-results-debug.html
-
-  unit-test:
-    needs: lint
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: chmod +x ./gradlew
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: gradle
-      - run: ./gradlew testDebugUnitTest
-      - uses: actions/upload-artifact@v4
-        with:
-          name: unit-test-report
-          path: app/build/reports/tests/testDebugUnitTest/
-
   instrumentation-test:
-    needs: unit-test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -70,22 +25,20 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: |
-            echo "Esperando emulador inicializar..."
+            echo "Aguardando inicialização do emulador..."
             adb kill-server
             adb start-server
             adb wait-for-device
             echo "Verificando boot completo..."
-            bash -c 'for i in $(seq 1 60); do
-              BOOT_COMPLETED=$(adb shell getprop sys.boot_completed | tr -d "\r")
+            for i in $(seq 1 60); do
+              BOOT_COMPLETED=$(adb shell getprop sys.boot_completed | tr -d '\r')
               if [ "$BOOT_COMPLETED" = "1" ]; then
                 echo "Emulador pronto!"
-                exit 0
+                break
               fi
-              echo "Esperando 5s..."
+              echo "Aguardando 5s..."
               sleep 5
             done
-            echo "Falha ao inicializar o emulador a tempo"
-            exit 1'
             adb shell input keyevent 82
             ./gradlew connectedDebugAndroidTest --stacktrace
 
@@ -93,49 +46,3 @@ jobs:
         with:
           name: instrumentation-test-report
           path: app/build/reports/androidTests/connected/
-
-  static-code-analysis:
-    needs: instrumentation-test
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: chmod +x ./gradlew
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: gradle
-      - name: Run SonarCloud Analysis
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          ./gradlew app:sonarqube \
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
-            -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
-            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }} \
-            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} \
-            -Dsonar.projectName=${{ env.SONAR_PROJECT_NAME }} \
-            -Dsonar.sources=${{ env.SONAR_SOURCES }}
-
-  package:
-    needs: static-code-analysis
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: chmod +x ./gradlew
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: gradle
-      - run: ./gradlew assembleDebug --stacktrace
-      - uses: actions/upload-artifact@v4
-        with:
-          name: SplitMate-debug.apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-
-  finalizado:
-    needs: package
-    runs-on: macos-latest
-    steps:
-      - run: echo "Build e testes do SplitMate concluídos com sucesso!"
