@@ -43,35 +43,30 @@ jobs:
           name: unit-test-report
           path: app/build/reports/tests/testDebugUnitTest/
 
-    # 3️⃣ Instrumentation Tests (UI) - Ubuntu runner
+  # 3️⃣ Instrumentation Tests (UI) - Ubuntu runner
   instrumentation-test:
     needs: unit-test
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x ./gradlew
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - run: chmod +x ./gradlew
+      - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: gradle
 
-      - name: Setup Android SDK
+      # Instalar Android SDK + platform-tools + system image
+      - name: Install Android SDK
         uses: android-actions/setup-android@v2
         with:
           api-level: 33
-          target: google_apis
           arch: x86_64
-          emulator-options: '-no-window -no-audio -no-boot-anim -gpu swiftshader_indirect'
+          target: google_apis
           force-avd-creation: true
 
-      - name: Run Emulator & Instrumentation Tests
+      - name: Wait for Emulator to boot
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 33
@@ -82,22 +77,22 @@ jobs:
           disable-animations: true
           ram-size: 4096M
           cores: 4
-          emulator-boot-timeout: 1800
+          emulator-boot-timeout: 600
           emulator-options: >
             -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot
           script: |
             echo "Esperando emulador bootar completamente..."
             adb wait-for-device
-            adb shell 'while [[ -z $(getprop sys.boot_completed | grep 1) ]]; do sleep 5; done;'
+            adb shell 'until [[ $(getprop sys.boot_completed) == 1 ]]; do sleep 5; done;'
             echo "Emulator API Level: $(adb shell getprop ro.build.version.sdk)"
             ./gradlew connectedDebugAndroidTest --stacktrace
 
-      - name: Upload Instrumentation Test Report
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: instrumentation-test-report
           path: app/build/reports/androidTests/connected/
-  # 4️⃣ Análise Estática (opcional SonarCloud)
+
+  # 4️⃣ Análise Estática (SonarCloud opcional)
   static-code-analysis:
     needs: instrumentation-test
     runs-on: macos-latest
