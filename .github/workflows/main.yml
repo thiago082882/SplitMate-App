@@ -43,41 +43,49 @@ jobs:
           name: unit-test-report
           path: app/build/reports/tests/testDebugUnitTest/
 
-  # 3️⃣ Instrumentation Tests (UI) - Ubuntu runner
-  instrumentation-test:
-    needs: unit-test
-    runs-on: ubuntu-latest
-    timeout-minutes: 50
-    steps:
-      - uses: actions/checkout@v4
-      - run: chmod +x ./gradlew
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: gradle
+# 3️⃣ Instrumentation Tests (UI) - Ubuntu runner
+instrumentation-test:
+  needs: unit-test
+  runs-on: ubuntu-latest
+  timeout-minutes: 60
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Run Android Emulator & Instrumentation Tests
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 33
-          arch: x86_64
-          target: google_apis
-          profile: pixel_6
-          force-avd-creation: true
-          disable-animations: true
-          ram-size: 4096M
-          cores: 4
-          emulator-boot-timeout: 1500
-          emulator-options: >
-            -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot
-          script: ./gradlew connectedDebugAndroidTest --stacktrace
+    - name: Grant execute permission for gradlew
+      run: chmod +x ./gradlew
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: instrumentation-test-report
-          path: app/build/reports/androidTests/connected/
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+        cache: gradle
 
+    - name: Run Android Emulator & Instrumentation Tests
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: 33
+        arch: x86_64
+        target: google_apis
+        profile: pixel_6
+        force-avd-creation: true
+        disable-animations: true
+        ram-size: 4096M
+        cores: 4
+        emulator-boot-timeout: 1800 # aumenta para 30 min
+        emulator-options: >
+          -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot
+        script: |
+          echo "Esperando emulador bootar..."
+          adb wait-for-device
+          ./gradlew connectedDebugAndroidTest --stacktrace
+
+    - name: Upload Instrumentation Test Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: instrumentation-test-report
+        path: app/build/reports/androidTests/connected/
   # 4️⃣ Análise Estática (opcional SonarCloud)
   static-code-analysis:
     needs: instrumentation-test
