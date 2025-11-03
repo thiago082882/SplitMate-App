@@ -65,11 +65,7 @@ jobs:
           emulator-options: "-no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot"
           disable-animations: true
           boot-timeout: 900
-          script: |
-            echo "Esperando emulador inicializar..."
-            adb -e wait-for-device
-            adb -e shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done;'
-            ./gradlew connectedDebugAndroidTest
+          script: ./gradlew connectedDebugAndroidTest
 
       - uses: actions/upload-artifact@v4
         with:
