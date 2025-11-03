@@ -62,6 +62,10 @@ jobs:
           java-version: '17'
           cache: gradle
 
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager "platforms;android-33" "system-images;android-33;google_apis;x86_64" "platform-tools"
+
       - name: Run Android Emulator & Instrumentation Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -77,8 +81,10 @@ jobs:
           emulator-options: >
             -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot
           script: |
-            echo "Esperando emulador bootar..."
+            echo "Esperando emulador bootar completamente..."
             adb wait-for-device
+            adb shell 'while [[ -z $(getprop sys.boot_completed | grep 1) ]]; do sleep 5; done;'
+            echo "Emulator API Level: $(adb shell getprop ro.build.version.sdk)"
             ./gradlew connectedDebugAndroidTest --stacktrace
 
       - name: Upload Instrumentation Test Report
