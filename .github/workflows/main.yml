@@ -59,17 +59,16 @@ jobs:
       - name: Run Android Emulator & Instrumentation Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          api-level: 33
           arch: x86_64
           target: google_apis
-          emulator-options: "-no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-load"
+          emulator-options: "-no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot"
           disable-animations: true
-          boot-timeout: 600 # aumenta timeout do boot
+          boot-timeout: 900
           script: |
             echo "Esperando emulador inicializar..."
-            adb wait-for-device
-            adb shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done;'
-            adb shell input keyevent 82
+            adb -e wait-for-device
+            adb -e shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done;'
             ./gradlew connectedDebugAndroidTest
 
       - uses: actions/upload-artifact@v4
