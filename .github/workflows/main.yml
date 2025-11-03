@@ -43,7 +43,7 @@ jobs:
           name: unit-test-report
           path: app/build/reports/tests/testDebugUnitTest/
 
-  # 3️⃣ Instrumentation Tests (UI) - Ubuntu runner
+    # 3️⃣ Instrumentation Tests (UI) - Ubuntu runner
   instrumentation-test:
     needs: unit-test
     runs-on: ubuntu-latest
@@ -62,11 +62,16 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Install Android SDK packages
-        run: |
-          yes | sdkmanager "platforms;android-33" "system-images;android-33;google_apis;x86_64" "platform-tools"
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+        with:
+          api-level: 33
+          target: google_apis
+          arch: x86_64
+          emulator-options: '-no-window -no-audio -no-boot-anim -gpu swiftshader_indirect'
+          force-avd-creation: true
 
-      - name: Run Android Emulator & Instrumentation Tests
+      - name: Run Emulator & Instrumentation Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 33
@@ -92,7 +97,6 @@ jobs:
         with:
           name: instrumentation-test-report
           path: app/build/reports/androidTests/connected/
-
   # 4️⃣ Análise Estática (opcional SonarCloud)
   static-code-analysis:
     needs: instrumentation-test
