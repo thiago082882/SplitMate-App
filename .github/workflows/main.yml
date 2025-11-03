@@ -8,13 +8,48 @@ on:
   workflow_dispatch:
 
 jobs:
+  # 1️⃣ Lint
+  lint:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: chmod +x ./gradlew
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: gradle
+      - run: ./gradlew lintDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lint.html
+          path: app/build/reports/lint-results-debug.html
+
+  # 2️⃣ Unit Tests
+  unit-test:
+    needs: lint
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: chmod +x ./gradlew
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: gradle
+      - run: ./gradlew testDebugUnitTest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: app/build/reports/tests/testDebugUnitTest/
+
+  # 3️⃣ Instrumentation Tests (UI) - Ubuntu runner
   instrumentation-test:
+    needs: unit-test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - run: chmod +x ./gradlew
-
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -24,12 +59,12 @@ jobs:
       - name: Run Android Emulator & Instrumentation Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 33
+          api-level: 34
           arch: x86_64
           target: google_apis
           emulator-options: "-no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-load"
           disable-animations: true
-          boot-timeout: 600
+          boot-timeout: 600 # aumenta timeout do boot
           script: |
             echo "Esperando emulador inicializar..."
             adb wait-for-device
@@ -41,3 +76,44 @@ jobs:
         with:
           name: instrumentation-test-report
           path: app/build/reports/androidTests/connected/
+
+  # 4️⃣ Análise Estática (opcional SonarCloud)
+  static-code-analysis:
+    needs: instrumentation-test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: chmod +x ./gradlew     
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: gradle
+      - run: ./gradlew app:sonarqube -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 5️⃣ Build APK
+  package:
+    needs: static-code-analysis
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: chmod +x ./gradlew
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: gradle
+      - run: ./gradlew assembleDebug --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SplitMate-debug.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+  # 6️⃣ Finalizado
+  finalizado:
+    needs: package
+    runs-on: macos-latest
+    steps:
+      - run: echo "Build e testes do SplitMate concluídos com sucesso!"
