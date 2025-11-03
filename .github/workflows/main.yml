@@ -43,13 +43,13 @@ jobs:
           name: unit-test-report
           path: app/build/reports/tests/testDebugUnitTest/
 
-  # 3️⃣ Instrumentation Tests (UI) - Ubuntu runner
+  # 3️⃣ Instrumentation Tests (UI)
   instrumentation-test:
     needs: [unit-test]
     runs-on: macos-latest
     steps:
       - name: Checkout the code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Run espresso tests
         uses: reactivecircus/android-emulator-runner@v2
@@ -58,7 +58,7 @@ jobs:
           script: ./gradlew connectedCheck
 
       - name: Upload test report
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4 
         with:
           name: instrumentation_test_report
           path: app/build/reports/androidTests/connected/
@@ -102,4 +102,4 @@ jobs:
     needs: package
     runs-on: macos-latest
     steps:
-      - run: echo "Build e testes do SplitMate concluídos com sucesso!"
+      - run: echo "✅ Build e testes do SplitMate concluídos com sucesso!"
