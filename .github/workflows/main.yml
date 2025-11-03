@@ -2,14 +2,15 @@ name: Android CI - SplitMate
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [master, main]
   pull_request:
-    branches: [ master, main ]
+    branches: [master, main]
   workflow_dispatch:
 
 jobs:
   instrumentation-test:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
@@ -24,7 +25,7 @@ jobs:
       - name: Garantir permissão ao Gradle
         run: chmod +x ./gradlew
 
-      - name: Instalar dependências do Gradle
+      - name: Preparar dependências
         run: ./gradlew dependencies || true
 
       - name: Executar emulador e testes instrumentados
