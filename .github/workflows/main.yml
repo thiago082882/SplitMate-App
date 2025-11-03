@@ -73,7 +73,7 @@ jobs:
           ram-size: 4096M
           cores: 4
           force-avd-creation: false
-          emulator-boot-timeout: 1200      # ✅ nome correto do parâmetro
+          emulator-boot-timeout: 1200
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: |
@@ -81,7 +81,7 @@ jobs:
             ./gradlew connectedDebugAndroidTest --stacktrace --info
 
       - name: Upload Instrumentation Test Report
-        uses: actions/upload-artifact@v4 
+        uses: actions/upload-artifact@v4
         with:
           name: instrumentation_test_report
           path: app/build/reports/androidTests/connected/
