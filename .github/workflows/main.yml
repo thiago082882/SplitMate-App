@@ -22,7 +22,7 @@ jobs:
       - run: ./gradlew lintDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: lint.html
+          name: lint-report
           path: app/build/reports/lint-results-debug.html
 
   # 2️⃣ Unit Tests
@@ -72,7 +72,7 @@ jobs:
           name: instrumentation-test-report
           path: app/build/reports/androidTests/connected/
 
-  # 4️⃣ Análise Estática (opcional SonarCloud)
+  # 4️⃣ Static Code Analysis (opcional SonarCloud)
   static-code-analysis:
     needs: instrumentation-test
     runs-on: macos-latest
