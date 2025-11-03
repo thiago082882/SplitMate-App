@@ -8,7 +8,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  # 3️⃣ Instrumentation Tests (UI) - Ubuntu runner
   instrumentation-test:
     runs-on: ubuntu-latest
     steps:
@@ -25,16 +24,10 @@ jobs:
       - name: Garantir permissão ao Gradle
         run: chmod +x ./gradlew
 
-      - name: Instalar SDKs necessários
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y unzip
-          yes | sudo ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager \
-            "platforms;android-33" \
-            "system-images;android-33;google_apis;x86_64" \
-            "platform-tools"
+      - name: Instalar dependências do Gradle
+        run: ./gradlew dependencies || true
 
-      - name: Run Android Emulator & Instrumentation Tests
+      - name: Executar emulador e testes instrumentados
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 33
@@ -49,8 +42,8 @@ jobs:
           emulator-options: >
             -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot
           script: |
-            echo "Esperando emulador bootar..."
+            echo "Aguardando emulador iniciar..."
             adb wait-for-device
-            adb shell 'until [[ $(getprop sys.boot_completed) == 1 ]]; do sleep 5; done;'
+            adb shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 5; done;'
             echo "Emulador inicializado!"
             ./gradlew connectedDebugAndroidTest --stacktrace
