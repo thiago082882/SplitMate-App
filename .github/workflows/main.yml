@@ -46,7 +46,7 @@ jobs:
   # 3️⃣ Instrumentation Tests (UI)
   instrumentation-test:
     needs: [unit-test]
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout the code
         uses: actions/checkout@v4
