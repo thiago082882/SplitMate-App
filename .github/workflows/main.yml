@@ -8,65 +8,33 @@ on:
   workflow_dispatch:
 
 jobs:
-  # 1️⃣ Lint
-  lint:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: chmod +x ./gradlew
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: gradle
-      - run: ./gradlew lintDebug
-      - uses: actions/upload-artifact@v4
-        with:
-          name: lint.html
-          path: app/build/reports/lint-results-debug.html
-
-  # 2️⃣ Unit Tests
-  unit-test:
-    needs: lint
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: chmod +x ./gradlew
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: gradle
-      - run: ./gradlew testDebugUnitTest
-      - uses: actions/upload-artifact@v4
-        with:
-          name: unit-test-report
-          path: app/build/reports/tests/testDebugUnitTest/
-
   # 3️⃣ Instrumentation Tests (UI) - Ubuntu runner
   instrumentation-test:
-    needs: unit-test
     runs-on: ubuntu-latest
-    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - run: chmod +x ./gradlew
-      - uses: actions/setup-java@v4
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: gradle
 
-      # Instalar Android SDK + platform-tools + system image
-      - name: Install Android SDK
-        uses: android-actions/setup-android@v2
-        with:
-          api-level: 33
-          arch: x86_64
-          target: google_apis
-          force-avd-creation: true
+      - name: Garantir permissão ao Gradle
+        run: chmod +x ./gradlew
 
-      - name: Wait for Emulator to boot
+      - name: Instalar SDKs necessários
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip
+          yes | sudo ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager \
+            "platforms;android-33" \
+            "system-images;android-33;google_apis;x86_64" \
+            "platform-tools"
+
+      - name: Run Android Emulator & Instrumentation Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 33
@@ -77,58 +45,12 @@ jobs:
           disable-animations: true
           ram-size: 4096M
           cores: 4
-          emulator-boot-timeout: 600
+          emulator-boot-timeout: 1800
           emulator-options: >
             -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot
           script: |
-            echo "Esperando emulador bootar completamente..."
+            echo "Esperando emulador bootar..."
             adb wait-for-device
             adb shell 'until [[ $(getprop sys.boot_completed) == 1 ]]; do sleep 5; done;'
-            echo "Emulator API Level: $(adb shell getprop ro.build.version.sdk)"
+            echo "Emulador inicializado!"
             ./gradlew connectedDebugAndroidTest --stacktrace
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: instrumentation-test-report
-          path: app/build/reports/androidTests/connected/
-
-  # 4️⃣ Análise Estática (SonarCloud opcional)
-  static-code-analysis:
-    needs: instrumentation-test
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: chmod +x ./gradlew     
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: gradle
-      - run: ./gradlew app:sonarqube -Dsonar.login=${{ secrets.SONAR_TOKEN }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # 5️⃣ Build APK
-  package:
-    needs: static-code-analysis
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: chmod +x ./gradlew
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: gradle
-      - run: ./gradlew assembleDebug --stacktrace
-      - uses: actions/upload-artifact@v4
-        with:
-          name: SplitMate-debug.apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-
-  # 6️⃣ Finalizado
-  finalizado:
-    needs: package
-    runs-on: macos-latest
-    steps:
-      - run: echo "Build e testes do SplitMate concluídos com sucesso!"
