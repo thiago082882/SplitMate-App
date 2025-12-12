@@ -1,0 +1,53 @@
+import org.gradle.internal.os.OperatingSystem
+
+def androidHome = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
+def emulator = "${androidHome}/emulator/emulator"
+def avdManager = "${androidHome}/cmdline-tools/latest/bin/avdmanager"
+def sdkManager = "${androidHome}/cmdline-tools/latest/bin/sdkmanager"
+
+task installSystemImage(type: Exec) {
+    commandLine sdkManager, "--install", "system-images;android-33;google_apis;x86_64"
+}
+
+task createEmulator(type: Exec) {
+    dependsOn installSystemImage
+    commandLine avdManager, "create", "avd", "--force",
+            "--name", "CI_API_33",
+            "--package", "system-images;android-33;google_apis;x86_64",
+            "--device", "pixel_6"
+}
+
+task startEmulator {
+    dependsOn createEmulator
+    doLast {
+        exec {
+            commandLine emulator, "-avd", "CI_API_33",
+                    "-no-window", "-no-audio", "-no-boot-anim",
+                    "-gpu", "swiftshader_indirect", "-no-snapshot"
+        }
+    }
+}
+
+task waitForBoot(type: Exec) {
+    dependsOn startEmulator
+    commandLine "bash", "-c", """
+        adb wait-for-device &&
+        while [[ -z \$(adb shell getprop sys.boot_completed) ]]; do sleep 2; done &&
+        adb shell input keyevent 82
+    """
+}
+
+task runInstrumentationTests(type: Exec) {
+    dependsOn waitForBoot
+    commandLine "./gradlew", "connectedDebugAndroidTest"
+}
+
+task stopEmulator(type: Exec) {
+    doLast {
+        commandLine "adb", "emu", "kill"
+    }
+}
+
+task ciInstrumentationPipeline {
+    dependsOn runInstrumentationTests, stopEmulator
+}

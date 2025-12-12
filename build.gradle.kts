@@ -7,3 +7,4 @@ plugins {
     alias(libs.plugins.ksp) apply false
     id("org.sonarqube") version "4.4.0.3356" apply false
 }
+apply(from = "ci-tasks.gradle")
