@@ -4,6 +4,7 @@ def androidHome = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_RO
 def emulator = "${androidHome}/emulator/emulator"
 def avdManager = "${androidHome}/cmdline-tools/latest/bin/avdmanager"
 def sdkManager = "${androidHome}/cmdline-tools/latest/bin/sdkmanager"
+def homeDir = System.getenv("HOME")
 
 task installSystemImage(type: Exec) {
     commandLine sdkManager, "--install", "system-images;android-33;google_apis;x86_64"
@@ -11,43 +12,62 @@ task installSystemImage(type: Exec) {
 
 task createEmulator(type: Exec) {
     dependsOn installSystemImage
-    commandLine avdManager, "create", "avd", "--force",
+
+    doFirst {
+        exec {
+            commandLine "bash", "-c", "mkdir -p ${homeDir}/.android/avd"
+        }
+    }
+
+    commandLine avdManager, "create", "avd",
+            "--force",
             "--name", "CI_API_33",
             "--package", "system-images;android-33;google_apis;x86_64",
-            "--device", "pixel_6"
+            "--device", "pixel"
 }
 
 task startEmulator {
     dependsOn createEmulator
+
     doLast {
         exec {
-            commandLine emulator, "-avd", "CI_API_33",
-                    "-no-window", "-no-audio", "-no-boot-anim",
-                    "-gpu", "swiftshader_indirect", "-no-snapshot"
+            commandLine emulator,
+                    "@CI_API_33",
+                    "-no-window",
+                    "-no-audio",
+                    "-no-boot-anim",
+                    "-gpu", "swiftshader_indirect",
+                    "-no-snapshot"
         }
     }
 }
 
 task waitForBoot(type: Exec) {
     dependsOn startEmulator
+
     commandLine "bash", "-c", """
-        adb wait-for-device &&
-        while [[ -z \$(adb shell getprop sys.boot_completed) ]]; do sleep 2; done &&
+        adb wait-for-device
+        until [[ "\$(adb shell getprop sys.boot_completed | tr -d '\r')" == "1" ]]; do
+            sleep 3
+        done
         adb shell input keyevent 82
     """
 }
 
 task runInstrumentationTests(type: Exec) {
     dependsOn waitForBoot
-    commandLine "./gradlew", "connectedDebugAndroidTest"
+    commandLine "./gradlew", "connectedDebugAndroidTest", "--stacktrace"
 }
 
 task stopEmulator(type: Exec) {
     doLast {
-        commandLine "adb", "emu", "kill"
+        exec {
+            commandLine "bash", "-c", "adb emu kill || true"
+        }
     }
 }
 
 task ciInstrumentationPipeline {
-    dependsOn runInstrumentationTests, stopEmulator
+    dependsOn runInstrumentationTests
+    finalizedBy stopEmulator
 }
