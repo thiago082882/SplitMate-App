@@ -17,109 +17,108 @@ def avdManager = isWindows
         : "${androidHome}/cmdline-tools/latest/bin/avdmanager"
 
 // =======================
-// AVD config (LOCAL e CI)
+// AVD config (LOCAL)
 // =======================
-def avdName = "CI_API_33"
+def avdName = "LOCAL_API_33"
 def avdDir = "${userHome}/.android/avd"
 def iniPath = "${avdDir}/${avdName}.ini"
 
 // =======================
-// Tasks para criar e iniciar AVD
+// Tasks para criar e iniciar AVD (somente local)
 // =======================
-tasks.register("createEmulator", Exec) {
-    doFirst {
-        new File(avdDir).mkdirs()
-        def iniFile = new File(iniPath)
-        if (iniFile.exists()) {
-            iniFile.delete()
+if (!isCI) {
+
+    tasks.register("createEmulator", Exec) {
+        doFirst {
+            new File(avdDir).mkdirs()
+            def iniFile = new File(iniPath)
+            if (iniFile.exists()) {
+                iniFile.delete()
+            }
+        }
+
+        environment "ANDROID_SDK_HOME", userHome
+
+        commandLine avdManager,
+                "create", "avd",
+                "--force",
+                "--name", avdName,
+                "--package", "system-images;android-33;google_apis;x86_64",
+                "--device", "pixel"
+    }
+
+    tasks.register("startEmulator") {
+        dependsOn "createEmulator"
+
+        doLast {
+            exec {
+                commandLine emulator,
+                        "@${avdName}",
+                        "-no-window",
+                        "-no-audio",
+                        "-no-boot-anim",
+                        "-gpu", "swiftshader_indirect",
+                        "-no-snapshot",
+                        "-partition-size", "2048"
+            }
         }
     }
 
-    environment "ANDROID_SDK_HOME", userHome
+    tasks.register("waitForBoot", Exec) {
+        dependsOn "startEmulator"
 
-    commandLine avdManager,
-            "create", "avd",
-            "--force",
-            "--name", avdName,
-            "--package", "system-images;android-33;google_apis;x86_64",
-            "--device", "pixel"
-}
-
-tasks.register("startEmulator") {
-    dependsOn "createEmulator"
-
-    doLast {
-        exec {
-            commandLine emulator,
-                    "@${avdName}",
-                    "-no-window",
-                    "-no-audio",
-                    "-no-boot-anim",
-                    "-gpu", "swiftshader_indirect",
-                    "-no-snapshot",
-                    "-partition-size", "2048"
+        if (isWindows) {
+            commandLine "cmd", "/c", """
+                adb wait-for-device
+                :check
+                for /f "delims=" %%a in ('adb shell getprop sys.boot_completed') do (
+                    if "%%a"=="1" goto ready
+                )
+                timeout /t 3 >nul
+                goto check
+                :ready
+                adb shell input keyevent 82
+            """
+        } else {
+            commandLine "bash", "-c", """
+                adb wait-for-device
+                until [[ \$(adb shell getprop sys.boot_completed | tr -d '\\r') == "1" ]]; do
+                  sleep 3
+                done
+                adb shell input keyevent 82
+            """
         }
     }
-}
 
-tasks.register("waitForBoot", Exec) {
-    dependsOn "startEmulator"
+    tasks.register("runInstrumentationTests", Exec) {
+        dependsOn "waitForBoot"
 
-    if (isWindows) {
-        commandLine "cmd", "/c", """
-            adb wait-for-device
-            :check
-            for /f "delims=" %%a in ('adb shell getprop sys.boot_completed') do (
-                if "%%a"=="1" goto ready
-            )
-            timeout /t 3 >nul
-            goto check
-            :ready
-            adb shell input keyevent 82
-        """
-    } else {
-        commandLine "bash", "-c", """
-            adb wait-for-device
-            until [[ \$(adb shell getprop sys.boot_completed | tr -d '\\r') == "1" ]]; do
-              sleep 3
-            done
-            adb shell input keyevent 82
-        """
+        commandLine isWindows
+                ? ["cmd", "/c", "gradlew :app:connectedDebugAndroidTest"]
+                : ["./gradlew", ":app:connectedDebugAndroidTest"]
     }
-}
 
-tasks.register("runInstrumentationTests", Exec) {
-    dependsOn "waitForBoot"
-
-    commandLine isWindows
-            ? ["cmd", "/c", "gradlew connectedDebugAndroidTest"]
-            : ["./gradlew", "connectedDebugAndroidTest"]
-}
-
-tasks.register("stopEmulator") {
-    doLast {
-        exec {
-            commandLine "adb", "emu", "kill"
+    tasks.register("stopEmulator") {
+        doLast {
+            exec {
+                commandLine "adb", "emu", "kill"
+            }
         }
     }
+
+    tasks.register("localInstrumentationPipeline") {
+        dependsOn "runInstrumentationTests"
+        finalizedBy "stopEmulator"
+    }
 }
 
-// ci-tasks.gradle
-// Pipeline CI para testes instrumentados usando emulador gerenciado pelo GitHub Actions
-
+// =======================
+// Pipeline CI (GitHub Actions)
+// =======================
 tasks.register("ciInstrumentationPipeline") {
-    description = "Roda testes instrumentados no CI usando emulador padrão"
+    description = "Roda testes instrumentados no CI usando emulador do GH Actions"
     group = "verification"
 
-
-    dependsOn "connectedDebugAndroidTest"
-}
-
-
-// =======================
-// Pipeline local
-// =======================
-tasks.register("localInstrumentationPipeline") {
-    dependsOn "runInstrumentationTests"
-    finalizedBy "stopEmulator"
+    // Dependência da task correta no módulo app
+    dependsOn ":app:connectedDebugAndroidTest"
 }
