@@ -71,14 +71,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 50
 
-    strategy:
-      fail-fast: false
-      matrix:
-        api-level: [33]
-
     steps:
+      # 1. Checkout
       - uses: actions/checkout@v4
 
+      # 2. Setup JDK 17 + cache Gradle
       - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
@@ -86,20 +83,19 @@ jobs:
           java-version: 17
           cache: gradle
 
-      - name: Setup Android Emulator
+      # 3. Setup Android SDK
+      - name: Setup Android SDK
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: ${{ matrix.api-level }}
-          target: google_apis
-          arch: x86_64           # obrigatoriamente x86_64
+          api-level: 33
+          target: default
+          arch: x86_64
           profile: pixel
           disable-animations: true
-          cores: 2
           avd-name: test
           force-avd-creation: true
           emulator-boot-timeout: 600
-          emulator-port: 5554
-          disable-linux-hw-accel: true # desabilita KVM
+          disable-linux-hw-accel: true   # desabilita KVM
           emulator-options: >
             -no-window
             -no-audio
@@ -108,9 +104,25 @@ jobs:
             -no-snapshot
             -partition-size 1024
             -wipe-data
-          script: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace
 
-      - name: Upload relatórios
+      # 4. Start emulator (já criado acima)
+      - name: Start emulator
+        run: |
+          emulator -avd test -no-window -no-audio -gpu swiftshader_indirect -partition-size 1024 &
+          adb wait-for-device
+          until [[ $(adb shell getprop sys.boot_completed | tr -d '\r') == "1" ]]; do sleep 3; done
+          adb shell input keyevent 82
+
+      # 5. Run instrumentation tests
+      - name: Run instrumentation tests
+        run: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace
+
+      # 6. Stop emulator
+      - name: Stop emulator
+        run: adb emu kill
+
+      # 7. Upload reports
+      - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
         with:

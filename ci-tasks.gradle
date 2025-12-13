@@ -4,7 +4,7 @@ def isWindows = OperatingSystem.current().isWindows()
 def androidHome = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
 def userHome = System.getProperty("user.home")
 
-// Usar x86_64 obrigatório para Linux/CI
+// Caminhos para emulador e avdmanager
 def emulator = isWindows
         ? "${androidHome}\\emulator\\emulator.exe"
         : "${androidHome}/emulator/emulator"
@@ -13,7 +13,7 @@ def avdManager = isWindows
         ? "${androidHome}\\cmdline-tools\\latest\\bin\\avdmanager.bat"
         : "${androidHome}/cmdline-tools/latest/bin/avdmanager"
 
-// Nome do AVD
+// Nome e diretório do AVD
 def avdName = "LOCAL_X86_API_33"
 def avdDir = "${userHome}/.android/avd"
 def iniPath = "${avdDir}/${avdName}.ini"
@@ -34,7 +34,7 @@ tasks.register("createEmulator", Exec) {
             "create", "avd",
             "--force",
             "--name", avdName,
-            "--package", "system-images;android-33;default;x86_64", // x86_64 obrigatório
+            "--package", "system-images;android-33;default;x86_64", // x86_64 obrigatório para Linux CI
             "--device", "pixel"
 }
 
@@ -52,7 +52,7 @@ tasks.register("startEmulator") {
                     "-no-boot-anim",
                     "-gpu", "swiftshader_indirect",
                     "-no-snapshot",
-                    "-partition-size", "1024", // reduzir para caber no runner
+                    "-partition-size", "1024", // reduz para caber no runner
                     "-wipe-data",
                     "-accel", "off" // desabilita KVM
         }
