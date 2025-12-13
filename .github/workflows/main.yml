@@ -118,7 +118,7 @@ jobs:
           echo no | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd \
             --force \
             --name test \
-            --package "system-images;android-${{ matrix.api-level }};default;x86_64" \
+            --package "system-images;android-${{ matrix.api-level }};google_apis;x86_64" \
             --device "pixel" \
             --sdcard 512M
 
