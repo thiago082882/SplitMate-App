@@ -136,8 +136,16 @@ jobs:
             -partition-size 1024 \
             -wipe-data \
             -accel off &
+
+          # Espera o emulador iniciar completamente
           adb wait-for-device
-          until [[ $(adb shell getprop sys.boot_completed | tr -d '\r') == "1" ]]; do sleep 3; done
+          TIMEOUT=300
+          ELAPSED=0
+          until [[ $(adb shell getprop sys.boot_completed | tr -d '\r') == "1" ]] || [ $ELAPSED -ge $TIMEOUT ]; do
+            sleep 5
+            ELAPSED=$((ELAPSED + 5))
+          done
+
           adb shell input keyevent 82
           # Disable animations
           adb shell settings put global window_animation_scale 0.0
@@ -158,4 +166,3 @@ jobs:
           path: |
             app/build/reports/androidTests/connected/
             app/build/outputs/androidTest-results/connected/
-
