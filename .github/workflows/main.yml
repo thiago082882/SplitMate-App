@@ -117,7 +117,7 @@ jobs:
             "platform-tools" \
             "platforms;android-${{ matrix.api-level }}" \
             "emulator" \
-            "system-images;android-${{ matrix.api-level }};google_apis;x86_64"
+            "system-images;android-${{ matrix.api-level }};default;x86_64"
 
       - name: Create AVD
         run: |
