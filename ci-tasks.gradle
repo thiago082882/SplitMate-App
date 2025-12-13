@@ -121,23 +121,22 @@ def isWindows = OperatingSystem.current().isWindows()
 def androidHome = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
 def userHome = System.getProperty("user.home")
 
-def emulator = isWindows
-        ? "${androidHome}\\emulator\\emulator.exe"
-        : "${androidHome}/emulator/emulator"
+// Caminhos para o emulador e avdmanager
+def emulator = isWindows ? "${androidHome}\\emulator\\emulator.exe" : "${androidHome}/emulator/emulator"
+def avdManager = isWindows ? "${androidHome}\\cmdline-tools\\latest\\bin\\avdmanager.bat" : "${androidHome}/cmdline-tools/latest/bin/avdmanager"
 
-def avdManager = isWindows
-        ? "${androidHome}\\cmdline-tools\\latest\\bin\\avdmanager.bat"
-        : "${androidHome}/cmdline-tools/latest/bin/avdmanager"
-
+// Nome e diretório do AVD
 def avdName = "LOCAL_X86_API_33"
 def avdDir = "${userHome}/.android/avd"
 def iniPath = "${avdDir}/${avdName}.ini"
 
-// Criar emulador
-tasks.register("createEmulator", Exec) {
+// ======================
+// 1. Criar AVD x86_64
+// ======================
+task createEmulator(type: Exec) {
     doFirst {
-        new File(avdDir).mkdirs()
-        def iniFile = new File(iniPath)
+        file(avdDir).mkdirs()
+        def iniFile = file(iniPath)
         if (iniFile.exists()) iniFile.delete()
     }
 
@@ -151,9 +150,11 @@ tasks.register("createEmulator", Exec) {
             "--device", "pixel"
 }
 
-//Iniciar emulador
-tasks.register("startEmulator") {
-    dependsOn "createEmulator"
+// ======================
+// 2. Iniciar emulador
+// ======================
+task startEmulator(type: Exec) {
+    dependsOn createEmulator
     doLast {
         exec {
             commandLine emulator,
@@ -165,52 +166,69 @@ tasks.register("startEmulator") {
                     "-no-snapshot",
                     "-partition-size", "1024",
                     "-wipe-data",
-                    "-accel", "off"
+                    "-accel", "off" // sem KVM
         }
     }
 }
 
-//Esperar boot
-tasks.register("waitForBoot", Exec) {
-    dependsOn "startEmulator"
-    if (isWindows) {
-        commandLine "cmd", "/c", """
-            adb wait-for-device
-            :check
-            for /f "delims=" %%a in ('adb shell getprop sys.boot_completed') do (
-                if "%%a"=="1" goto ready
-            )
-            timeout /t 3 >nul
-            goto check
-            :ready
-            adb shell input keyevent 82
-        """
-    } else {
-        commandLine "bash", "-c", """
-            adb wait-for-device
-            until [[ \$(adb shell getprop sys.boot_completed | tr -d '\\r') == "1" ]]; do sleep 3; done
-            adb shell input keyevent 82
-        """
-    }
-}
-
-//Rodar testes
-tasks.register("runInstrumentationTests", Exec) {
-    dependsOn "waitForBoot"
-    commandLine isWindows
-            ? ["cmd", "/c", "gradlew", ":app:connectedDebugAndroidTest"]
-            : ["./gradlew", ":app:connectedDebugAndroidTest"]
-}
-
-// Finalizar emulador
-tasks.register("stopEmulator") {
+// ======================
+// 3. Espera boot do emulador
+// ======================
+task waitForBoot(type: Exec) {
+    dependsOn startEmulator
     doLast {
-        exec { commandLine "adb", "emu", "kill" }
+        if (isWindows) {
+            commandLine "cmd", "/c", """
+                adb wait-for-device
+                :check
+                for /f "delims=" %%a in ('adb shell getprop sys.boot_completed') do (
+                    if "%%a"=="1" goto ready
+                )
+                timeout /t 3 >nul
+                goto check
+                :ready
+                adb shell input keyevent 82
+            """
+        } else {
+            commandLine "bash", "-c", """
+                adb wait-for-device
+                until [[ \$(adb shell getprop sys.boot_completed | tr -d '\\r') == "1" ]]; do sleep 3; done
+                adb shell input keyevent 82
+                adb shell settings put global window_animation_scale 0.0
+                adb shell settings put global transition_animation_scale 0.0
+                adb shell settings put global animator_duration_scale 0.0
+            """
+        }
     }
 }
 
-//Pipeline completo
-tasks.register("localInstrumentationPipeline") {
-    dependsOn "runInstrumentationTests"
-    finalizedBy "stopEmulator"
+// ======================
+// 4. Executa testes instrumentados
+// ======================
+task runInstrumentationTests(type: Exec) {
+    dependsOn waitForBoot
+    if (isWindows) {
+        commandLine "cmd", "/c", "gradlew", ":app:connectedDebugAndroidTest"
+    } else {
+        commandLine "./gradlew", ":app:connectedDebugAndroidTest"
+    }
+}
+
+// ======================
+// 5. Finaliza emulador
+// ======================
+task stopEmulator(type: Exec) {
+    doLast {
+        exec {
+            commandLine "adb", "emu", "kill"
+        }
+    }
+}
+
+// ======================
+// 6. Pipeline completo
+// ======================
+task localInstrumentationPipeline {
+    dependsOn runInstrumentationTests
+    finalizedBy stopEmulator
 }

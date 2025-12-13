@@ -60,7 +60,7 @@
 #          path: |
 #            app/build/reports/androidTests/connected/
 #            app/build/outputs/androidTest-results/connected/
-name: Android CI - SplitMate (No Emulator Runner)
+name: Android CI - SplitMate (No External Emulator Runner)
 
 on:
   push:
@@ -91,33 +91,46 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
-      - name: Setup Android SDK
+      - name: Install Android SDK cmdline-tools
         run: |
-          mkdir -p $HOME/android-sdk/cmdline-tools/latest
-          curl -sSL https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -o cmdline-tools.zip
-          unzip cmdline-tools.zip -d $HOME/android-sdk/cmdline-tools/tmp
-          mv $HOME/android-sdk/cmdline-tools/tmp/cmdline-tools/* $HOME/android-sdk/cmdline-tools/latest/
-          rm -rf $HOME/android-sdk/cmdline-tools/tmp cmdline-tools.zip
-          echo "export ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          cd $HOME/android-sdk/cmdline-tools
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
+          unzip -o cmdline-tools.zip
+          mv cmdline-tools latest
+          rm cmdline-tools.zip
+        env:
+          ANDROID_HOME: $HOME/android-sdk
+          ANDROID_SDK_ROOT: $HOME/android-sdk
 
-      - name: Accept SDK licenses and install required tools
+      - name: Install system image and emulator
         run: |
+          export ANDROID_HOME=$HOME/android-sdk
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools:$PATH
           yes | sdkmanager --licenses
           sdkmanager "platform-tools" "platforms;android-${{ matrix.api-level }}" "emulator" "system-images;android-${{ matrix.api-level }};default;x86_64"
 
       - name: Create AVD
         run: |
+          export ANDROID_HOME=$HOME/android-sdk
+          export ANDROID_AVD_HOME=$HOME/.android/avd
+          mkdir -p $ANDROID_AVD_HOME
           echo no | avdmanager create avd \
             --force \
             --name test \
             --package "system-images;android-${{ matrix.api-level }};default;x86_64" \
-            --device "pixel"
+            --device "pixel" \
+            --sdcard 512M
+        env:
+          ANDROID_HOME: $HOME/android-sdk
+          ANDROID_SDK_ROOT: $HOME/android-sdk
 
       - name: Start emulator
         run: |
-          $ANDROID_SDK_ROOT/emulator/emulator \
+          export ANDROID_HOME=$HOME/android-sdk
+          export ANDROID_AVD_HOME=$HOME/.android/avd
+          export PATH=$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools:$PATH
+          $ANDROID_HOME/emulator/emulator \
             -avd test \
             -no-window \
             -no-audio \
@@ -129,10 +142,13 @@ jobs:
           adb wait-for-device
           until [[ $(adb shell getprop sys.boot_completed | tr -d '\r') == "1" ]]; do sleep 3; done
           adb shell input keyevent 82
-          # Desabilitar animações para agilizar testes
+          # Disable animations
           adb shell settings put global window_animation_scale 0.0
           adb shell settings put global transition_animation_scale 0.0
           adb shell settings put global animator_duration_scale 0.0
+        env:
+          ANDROID_HOME: $HOME/android-sdk
+          ANDROID_AVD_HOME: $HOME/.android/avd
 
       - name: Run instrumentation tests
         run: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace
