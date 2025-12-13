@@ -109,7 +109,7 @@ jobs:
             -no-boot-anim
             -gpu swiftshader_indirect
             -no-snapshot
-            -partition-size 2048
+            -partition-size 1024
             -wipe-data
           script: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace
 
