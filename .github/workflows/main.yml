@@ -77,10 +77,8 @@ jobs:
         api-level: [33]
 
     steps:
-      # 1. Checkout do código
       - uses: actions/checkout@v4
 
-      # 2. Setup JDK 17 + cache Gradle
       - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
@@ -88,13 +86,12 @@ jobs:
           java-version: 17
           cache: gradle
 
-      # 3. Setup Android SDK + Emulador ARM
       - name: Setup Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
           target: google_apis
-          arch: arm64-v8a               # ARM evita KVM
+          arch: x86_64           # obrigatoriamente x86_64
           profile: pixel
           disable-animations: true
           cores: 2
@@ -102,18 +99,17 @@ jobs:
           force-avd-creation: true
           emulator-boot-timeout: 600
           emulator-port: 5554
-          disable-linux-hw-accel: true
+          disable-linux-hw-accel: true # desabilita KVM
           emulator-options: >
             -no-window
             -no-audio
             -no-boot-anim
             -gpu swiftshader_indirect
             -no-snapshot
-            -partition-size 512
+            -partition-size 1024
             -wipe-data
           script: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace
 
-      # 4. Upload de relatórios
       - name: Upload relatórios
         if: always()
         uses: actions/upload-artifact@v4
