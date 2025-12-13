@@ -88,13 +88,13 @@ jobs:
           java-version: 17
           cache: gradle
 
-      # 3. Setup Android SDK + Emulador
+      # 3. Setup Android Emulator
       - name: Setup Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
           target: google_apis
-          arch: x86_64               # x86_64 obrigatório para Linux runners
+          arch: x86_64        # Obrigatório para Linux runner
           profile: pixel
           disable-animations: true
           cores: 2
@@ -102,7 +102,7 @@ jobs:
           force-avd-creation: true
           emulator-boot-timeout: 600
           emulator-port: 5554
-          disable-linux-hw-accel: true  # desabilita KVM, necessário no runner Linux
+          disable-linux-hw-accel: true   # desabilita KVM no runner Linux
           emulator-options: >
             -no-window
             -no-audio
@@ -122,4 +122,3 @@ jobs:
           path: |
             app/build/reports/androidTests/connected/
             app/build/outputs/androidTest-results/connected/
-
