@@ -150,9 +150,10 @@ task createEmulator(type: Exec) {
             "create", "avd",
             "--force",
             "--name", avdName,
-            "--package", "system-images;android-33;google_apis;x86_64",
+            "--package", "system-images;android-33;default;x86_64",
             "--device", "pixel"
 }
+
 
 // ======================
 // 2. Iniciar emulador

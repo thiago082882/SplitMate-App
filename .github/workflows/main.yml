@@ -131,7 +131,7 @@ jobs:
           echo no | avdmanager create avd \
             --force \
             --name test \
-            --package "system-images;android-${{ matrix.api-level }};google_apis;x86_64" \
+            --package "system-images;android-${{ matrix.api-level }};default;x86_64"
             --device pixel \
             --sdcard 512M
 
@@ -149,7 +149,7 @@ jobs:
             -no-boot-anim \
             -gpu swiftshader_indirect \
             -no-snapshot \
-            -partition-size 1024 \
+            -partition-size 800 \
             -wipe-data \
             -accel off &
 
