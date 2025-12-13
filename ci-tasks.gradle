@@ -1,10 +1,126 @@
+//import org.gradle.internal.os.OperatingSystem
+//
+//def isWindows = OperatingSystem.current().isWindows()
+//def androidHome = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
+//def userHome = System.getProperty("user.home")
+//
+//// Caminhos para emulador e avdmanager
+//def emulator = isWindows
+//        ? "${androidHome}\\emulator\\emulator.exe"
+//        : "${androidHome}/emulator/emulator"
+//
+//def avdManager = isWindows
+//        ? "${androidHome}\\cmdline-tools\\latest\\bin\\avdmanager.bat"
+//        : "${androidHome}/cmdline-tools/latest/bin/avdmanager"
+//
+//// Nome e diretório do AVD
+//def avdName = "LOCAL_X86_API_33"
+//def avdDir = "${userHome}/.android/avd"
+//def iniPath = "${avdDir}/${avdName}.ini"
+//
+//// ======================
+//// 1. Criar Emulador x86_64
+//// ======================
+//tasks.register("createEmulator", Exec) {
+//    doFirst {
+//        new File(avdDir).mkdirs()
+//        def iniFile = new File(iniPath)
+//        if (iniFile.exists()) iniFile.delete()
+//    }
+//
+//    environment "ANDROID_SDK_HOME", userHome
+//
+//    commandLine avdManager,
+//            "create", "avd",
+//            "--force",
+//            "--name", avdName,
+//            "--package", "system-images;android-33;default;x86_64", // x86_64 obrigatório para Linux CI
+//            "--device", "pixel"
+//}
+//
+//// ======================
+//// 2. Iniciar Emulador
+//// ======================
+//tasks.register("startEmulator") {
+//    dependsOn "createEmulator"
+//    doLast {
+//        exec {
+//            commandLine emulator,
+//                    "@${avdName}",
+//                    "-no-window",
+//                    "-no-audio",
+//                    "-no-boot-anim",
+//                    "-gpu", "swiftshader_indirect",
+//                    "-no-snapshot",
+//                    "-partition-size", "1024", // reduz para caber no runner
+//                    "-wipe-data",
+//                    "-accel", "off" // desabilita KVM
+//        }
+//    }
+//}
+//
+//// ======================
+//// 3. Espera boot do emulador
+//// ======================
+//tasks.register("waitForBoot", Exec) {
+//    dependsOn "startEmulator"
+//    if (isWindows) {
+//        commandLine "cmd", "/c", """
+//            adb wait-for-device
+//            :check
+//            for /f "delims=" %%a in ('adb shell getprop sys.boot_completed') do (
+//                if "%%a"=="1" goto ready
+//            )
+//            timeout /t 3 >nul
+//            goto check
+//            :ready
+//            adb shell input keyevent 82
+//        """
+//    } else {
+//        commandLine "bash", "-c", """
+//            adb wait-for-device
+//            until [[ \$(adb shell getprop sys.boot_completed | tr -d '\\r') == "1" ]]; do
+//              sleep 3
+//            done
+//            adb shell input keyevent 82
+//        """
+//    }
+//}
+//
+//// ======================
+//// 4. Executa testes instrumentados
+//// ======================
+//tasks.register("runInstrumentationTests", Exec) {
+//    dependsOn "waitForBoot"
+//    commandLine isWindows
+//            ? ["cmd", "/c", "gradlew", ":app:connectedDebugAndroidTest"]
+//            : ["./gradlew", ":app:connectedDebugAndroidTest"]
+//}
+//
+//// ======================
+//// 5. Finaliza emulador
+//// ======================
+//tasks.register("stopEmulator") {
+//    doLast {
+//        exec {
+//            commandLine "adb", "emu", "kill"
+//        }
+//    }
+//}
+//
+//// ======================
+//// 6. Pipeline completo
+//// ======================
+//tasks.register("localInstrumentationPipeline") {
+//    dependsOn "runInstrumentationTests"
+//    finalizedBy "stopEmulator"
+//}
 import org.gradle.internal.os.OperatingSystem
 
 def isWindows = OperatingSystem.current().isWindows()
 def androidHome = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
 def userHome = System.getProperty("user.home")
 
-// Caminhos para emulador e avdmanager
 def emulator = isWindows
         ? "${androidHome}\\emulator\\emulator.exe"
         : "${androidHome}/emulator/emulator"
@@ -13,14 +129,11 @@ def avdManager = isWindows
         ? "${androidHome}\\cmdline-tools\\latest\\bin\\avdmanager.bat"
         : "${androidHome}/cmdline-tools/latest/bin/avdmanager"
 
-// Nome e diretório do AVD
 def avdName = "LOCAL_X86_API_33"
 def avdDir = "${userHome}/.android/avd"
 def iniPath = "${avdDir}/${avdName}.ini"
 
-// ======================
-// 1. Criar Emulador x86_64
-// ======================
+// Criar emulador
 tasks.register("createEmulator", Exec) {
     doFirst {
         new File(avdDir).mkdirs()
@@ -34,13 +147,11 @@ tasks.register("createEmulator", Exec) {
             "create", "avd",
             "--force",
             "--name", avdName,
-            "--package", "system-images;android-33;default;x86_64", // x86_64 obrigatório para Linux CI
+            "--package", "system-images;android-33;default;x86_64",
             "--device", "pixel"
 }
 
-// ======================
-// 2. Iniciar Emulador
-// ======================
+//Iniciar emulador
 tasks.register("startEmulator") {
     dependsOn "createEmulator"
     doLast {
@@ -52,16 +163,14 @@ tasks.register("startEmulator") {
                     "-no-boot-anim",
                     "-gpu", "swiftshader_indirect",
                     "-no-snapshot",
-                    "-partition-size", "1024", // reduz para caber no runner
+                    "-partition-size", "1024",
                     "-wipe-data",
-                    "-accel", "off" // desabilita KVM
+                    "-accel", "off"
         }
     }
 }
 
-// ======================
-// 3. Espera boot do emulador
-// ======================
+//Esperar boot
 tasks.register("waitForBoot", Exec) {
     dependsOn "startEmulator"
     if (isWindows) {
@@ -79,17 +188,13 @@ tasks.register("waitForBoot", Exec) {
     } else {
         commandLine "bash", "-c", """
             adb wait-for-device
-            until [[ \$(adb shell getprop sys.boot_completed | tr -d '\\r') == "1" ]]; do
-              sleep 3
-            done
+            until [[ \$(adb shell getprop sys.boot_completed | tr -d '\\r') == "1" ]]; do sleep 3; done
             adb shell input keyevent 82
         """
     }
 }
 
-// ======================
-// 4. Executa testes instrumentados
-// ======================
+//Rodar testes
 tasks.register("runInstrumentationTests", Exec) {
     dependsOn "waitForBoot"
     commandLine isWindows
@@ -97,20 +202,14 @@ tasks.register("runInstrumentationTests", Exec) {
             : ["./gradlew", ":app:connectedDebugAndroidTest"]
 }
 
-// ======================
-// 5. Finaliza emulador
-// ======================
+// Finalizar emulador
 tasks.register("stopEmulator") {
     doLast {
-        exec {
-            commandLine "adb", "emu", "kill"
-        }
+        exec { commandLine "adb", "emu", "kill" }
     }
 }
 
-// ======================
-// 6. Pipeline completo
-// ======================
+//Pipeline completo
 tasks.register("localInstrumentationPipeline") {
     dependsOn "runInstrumentationTests"
     finalizedBy "stopEmulator"
