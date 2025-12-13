@@ -37,6 +37,8 @@ jobs:
             -no-boot-anim
             -gpu swiftshader_indirect
             -no-snapshot
+            -partition-size 4096
+            -wipe-data
           script: ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace
 
       - name: Upload relatório de testes
