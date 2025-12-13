@@ -60,7 +60,7 @@
 #          path: |
 #            app/build/reports/androidTests/connected/
 #            app/build/outputs/androidTest-results/connected/
-name: Android CI - SplitMate (Manual Emulator)
+name: Android CI - SplitMate (No Emulator Runner)
 
 on:
   push:
@@ -93,36 +93,51 @@ jobs:
 
       - name: Setup Android SDK
         run: |
-          sudo apt-get update
-          sudo apt-get install -y unzip wget
-          mkdir -p $HOME/android-sdk
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-          unzip cmdline-tools.zip -d $HOME/android-sdk/
           mkdir -p $HOME/android-sdk/cmdline-tools/latest
-          mv $HOME/android-sdk/cmdline-tools/* $HOME/android-sdk/cmdline-tools/latest/
-          export ANDROID_SDK_ROOT=$HOME/android-sdk
-          export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH
+          curl -sSL https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -o cmdline-tools.zip
+          unzip cmdline-tools.zip -d $HOME/android-sdk/cmdline-tools/tmp
+          mv $HOME/android-sdk/cmdline-tools/tmp/cmdline-tools/* $HOME/android-sdk/cmdline-tools/latest/
+          rm -rf $HOME/android-sdk/cmdline-tools/tmp cmdline-tools.zip
+          echo "export ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
+
+      - name: Accept SDK licenses and install required tools
+        run: |
           yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "emulator" "platforms;android-${{ matrix.api-level }}" "system-images;android-${{ matrix.api-level }};default;x86_64"
+          sdkmanager "platform-tools" "platforms;android-${{ matrix.api-level }}" "emulator" "system-images;android-${{ matrix.api-level }};default;x86_64"
 
       - name: Create AVD
         run: |
-          echo no | avdmanager create avd --force -n test --package "system-images;android-${{ matrix.api-level }};default;x86_64" --device "pixel"
+          echo no | avdmanager create avd \
+            --force \
+            --name test \
+            --package "system-images;android-${{ matrix.api-level }};default;x86_64" \
+            --device "pixel"
 
-      - name: Start Emulator
+      - name: Start emulator
         run: |
-          $ANDROID_SDK_ROOT/emulator/emulator -avd test -no-window -no-audio -gpu swiftshader_indirect -no-snapshot -wipe-data -partition-size 1024 -accel off &
+          $ANDROID_SDK_ROOT/emulator/emulator \
+            -avd test \
+            -no-window \
+            -no-audio \
+            -gpu swiftshader_indirect \
+            -no-snapshot \
+            -partition-size 1024 \
+            -wipe-data \
+            -accel off &
           adb wait-for-device
           until [[ $(adb shell getprop sys.boot_completed | tr -d '\r') == "1" ]]; do sleep 3; done
           adb shell input keyevent 82
-          adb shell settings put global window_animation_scale 0
-          adb shell settings put global transition_animation_scale 0
-          adb shell settings put global animator_duration_scale 0
+          # Desabilitar animações para agilizar testes
+          adb shell settings put global window_animation_scale 0.0
+          adb shell settings put global transition_animation_scale 0.0
+          adb shell settings put global animator_duration_scale 0.0
 
       - name: Run instrumentation tests
         run: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace
 
-      - name: Stop Emulator
+      - name: Stop emulator
         run: adb emu kill
 
       - name: Upload test reports
