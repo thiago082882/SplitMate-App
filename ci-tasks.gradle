@@ -12,11 +12,11 @@ def avdManager = isWindows
         ? "${androidHome}\\cmdline-tools\\latest\\bin\\avdmanager.bat"
         : "${androidHome}/cmdline-tools/latest/bin/avdmanager"
 
-def avdName = "LOCAL_API_33"
+def avdName = "LOCAL_ARM_API_33"
 def avdDir = "${userHome}/.android/avd"
 def iniPath = "${avdDir}/${avdName}.ini"
 
-// Cria emulador local
+// Cria emulador local ARM
 tasks.register("createEmulator", Exec) {
     doFirst {
         new File(avdDir).mkdirs()
@@ -30,7 +30,7 @@ tasks.register("createEmulator", Exec) {
             "create", "avd",
             "--force",
             "--name", avdName,
-            "--package", "system-images;android-33;google_apis;x86_64",
+            "--package", "system-images;android-33;google_apis;arm64-v8a",
             "--device", "pixel"
 }
 
