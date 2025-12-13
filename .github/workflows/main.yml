@@ -10,11 +10,18 @@ on:
 jobs:
   instrumentation-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [33, 30]
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - name: Setup JDK
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
@@ -23,11 +30,11 @@ jobs:
       - name: Permissão Gradle
         run: chmod +x ./gradlew
 
-      - name: Testes instrumentados
+      - name: Testes instrumentados (API ${{ matrix.api-level }})
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 33
-          target: google_apis
+          api-level: ${{ matrix.api-level }}
+          target: default
           arch: x86_64
           profile: pixel
           disable-animations: true
@@ -37,15 +44,16 @@ jobs:
             -no-boot-anim
             -gpu swiftshader_indirect
             -no-snapshot
-            -partition-size 4096
+            -no-metrics
+            -partition-size 2048
             -wipe-data
           script: ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace
 
-      - name: Upload relatório de testes
+      - name: Upload relatórios
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: instrumentation-test-report
+          name: reports-api-${{ matrix.api-level }}
           path: |
             app/build/reports/androidTests/connected/
             app/build/outputs/androidTest-results/connected/

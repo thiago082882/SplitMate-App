@@ -1,13 +1,14 @@
 import org.gradle.internal.os.OperatingSystem
 
 
-def isCI = System.getenv("CI") != null
+def isCI = System.getenv("CI") == "true"
 
 def androidHome = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
 def userHome = System.getProperty("user.home")
 
 def os = OperatingSystem.current()
 def isWindows = os.isWindows()
+
 
 def emulator = isWindows
         ? "${androidHome}\\emulator\\emulator.exe"
@@ -21,25 +22,40 @@ def sdkManager = isWindows
         ? "${androidHome}\\cmdline-tools\\latest\\bin\\sdkmanager.bat"
         : "${androidHome}/cmdline-tools/latest/bin/sdkmanager"
 
-
-def avdName = "CI_API_33"
+// =======================
+// AVD config (LOCAL)
+// =======================
+def avdName = "LOCAL_API_33"
 def avdDir = "${userHome}/.android/avd"
 def iniPath = "${avdDir}/${avdName}.ini"
 
+// =======================
+// BLOQUEIO TOTAL NO CI
+// =======================
+if (isCI) {
+    tasks.configureEach {
+        if (name.toLowerCase().contains("emulator") ||
+                name.toLowerCase().contains("avd") ||
+                name.toLowerCase().contains("systemimage")) {
+            enabled = false
+        }
+    }
+    return
+}
 
-task installSystemImage(type: Exec) {
+
+
+tasks.register("installSystemImage", Exec) {
     commandLine sdkManager,
             "--install",
             "system-images;android-33;google_apis;x86_64"
 }
 
-
-task createEmulator(type: Exec) {
-    dependsOn installSystemImage
+tasks.register("createEmulator", Exec) {
+    dependsOn "installSystemImage"
 
     doFirst {
         new File(avdDir).mkdirs()
-
         def iniFile = new File(iniPath)
         if (iniFile.exists()) {
             iniFile.delete()
@@ -56,9 +72,8 @@ task createEmulator(type: Exec) {
             "--device", "pixel"
 }
 
-
-task startEmulator {
-    dependsOn createEmulator
+tasks.register("startEmulator") {
+    dependsOn "createEmulator"
 
     doLast {
         exec {
@@ -69,14 +84,13 @@ task startEmulator {
                     "-no-boot-anim",
                     "-gpu", "swiftshader_indirect",
                     "-no-snapshot",
-                    "-accel", isCI ? "off" : "auto",
                     "-partition-size", "2048"
         }
     }
 }
 
-task waitForBoot(type: Exec) {
-    dependsOn startEmulator
+tasks.register("waitForBoot", Exec) {
+    dependsOn "startEmulator"
 
     if (isWindows) {
         commandLine "cmd", "/c", """
@@ -101,17 +115,15 @@ task waitForBoot(type: Exec) {
     }
 }
 
-
-task runInstrumentationTests(type: Exec) {
-    dependsOn waitForBoot
+tasks.register("runInstrumentationTests", Exec) {
+    dependsOn "waitForBoot"
 
     commandLine isWindows
             ? ["cmd", "/c", "gradlew connectedDebugAndroidTest"]
             : ["./gradlew", "connectedDebugAndroidTest"]
 }
 
-
-task stopEmulator {
+tasks.register("stopEmulator") {
     doLast {
         exec {
             commandLine "adb", "emu", "kill"
@@ -119,8 +131,7 @@ task stopEmulator {
     }
 }
 
-
-task ciInstrumentationPipeline {
-    dependsOn runInstrumentationTests
-    finalizedBy stopEmulator
+tasks.register("localInstrumentationPipeline") {
+    dependsOn "runInstrumentationTests"
+    finalizedBy "stopEmulator"
 }
