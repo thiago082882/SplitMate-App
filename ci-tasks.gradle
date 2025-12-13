@@ -121,9 +121,13 @@ def isWindows = OperatingSystem.current().isWindows()
 def androidHome = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
 def userHome = System.getProperty("user.home")
 
-// Caminhos para o emulador e avdmanager
-def emulator = isWindows ? "${androidHome}\\emulator\\emulator.exe" : "${androidHome}/emulator/emulator"
-def avdManager = isWindows ? "${androidHome}\\cmdline-tools\\latest\\bin\\avdmanager.bat" : "${androidHome}/cmdline-tools/latest/bin/avdmanager"
+def emulator = isWindows
+        ? "${androidHome}\\emulator\\emulator.exe"
+        : "${androidHome}/emulator/emulator"
+
+def avdManager = isWindows
+        ? "${androidHome}\\cmdline-tools\\latest\\bin\\avdmanager.bat"
+        : "${androidHome}/cmdline-tools/latest/bin/avdmanager"
 
 // Nome e diretório do AVD
 def avdName = "LOCAL_X86_API_33"
@@ -146,7 +150,7 @@ task createEmulator(type: Exec) {
             "create", "avd",
             "--force",
             "--name", avdName,
-            "--package", "system-images;android-33;default;x86_64",
+            "--package", "system-images;android-33;google_apis;x86_64",
             "--device", "pixel"
 }
 
@@ -158,7 +162,7 @@ task startEmulator(type: Exec) {
     doLast {
         exec {
             commandLine emulator,
-                    "@${avdName}",
+                    "-avd", avdName,
                     "-no-window",
                     "-no-audio",
                     "-no-boot-anim",
@@ -166,13 +170,13 @@ task startEmulator(type: Exec) {
                     "-no-snapshot",
                     "-partition-size", "1024",
                     "-wipe-data",
-                    "-accel", "off" // sem KVM
+                    "-accel", "off"
         }
     }
 }
 
 // ======================
-// 3. Espera boot do emulador
+// 3. Espera boot COMPLETO
 // ======================
 task waitForBoot(type: Exec) {
     dependsOn startEmulator
@@ -180,30 +184,49 @@ task waitForBoot(type: Exec) {
         if (isWindows) {
             commandLine "cmd", "/c", """
                 adb wait-for-device
-                :check
+
+                :boot
                 for /f "delims=" %%a in ('adb shell getprop sys.boot_completed') do (
-                    if "%%a"=="1" goto ready
+                    if "%%a"=="1" goto package
                 )
                 timeout /t 3 >nul
-                goto check
-                :ready
+                goto boot
+
+                :package
+                adb shell cmd package list packages >nul 2>&1
+                if errorlevel 1 (
+                    timeout /t 3 >nul
+                    goto package
+                )
+
                 adb shell input keyevent 82
+                adb shell settings put global window_animation_scale 0
+                adb shell settings put global transition_animation_scale 0
+                adb shell settings put global animator_duration_scale 0
             """
         } else {
             commandLine "bash", "-c", """
                 adb wait-for-device
-                until [[ \$(adb shell getprop sys.boot_completed | tr -d '\\r') == "1" ]]; do sleep 3; done
+
+                until [[ \$(adb shell getprop sys.boot_completed | tr -d '\\r') == "1" ]]; do
+                  sleep 3
+                done
+
+                until adb shell cmd package list packages >/dev/null 2>&1; do
+                  sleep 3
+                done
+
                 adb shell input keyevent 82
-                adb shell settings put global window_animation_scale 0.0
-                adb shell settings put global transition_animation_scale 0.0
-                adb shell settings put global animator_duration_scale 0.0
+                adb shell settings put global window_animation_scale 0
+                adb shell settings put global transition_animation_scale 0
+                adb shell settings put global animator_duration_scale 0
             """
         }
     }
 }
 
 // ======================
-// 4. Executa testes instrumentados
+// 4. Executa testes
 // ======================
 task runInstrumentationTests(type: Exec) {
     dependsOn waitForBoot
