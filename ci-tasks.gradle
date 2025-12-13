@@ -52,7 +52,7 @@ tasks.register("startEmulator") {
                     "-no-boot-anim",
                     "-gpu", "swiftshader_indirect",
                     "-no-snapshot",
-                    "-partition-size", "1024",
+                    "-partition-size", "512",
                     "-wipe-data",
                     "-accel", "off" // desabilita KVM se não houver hardware
         }
