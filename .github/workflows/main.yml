@@ -72,7 +72,7 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      # 1. Checkout do código
+      # 1. Checkout
       - uses: actions/checkout@v4
 
       # 2. Setup JDK 17 e cache Gradle
@@ -96,14 +96,14 @@ jobs:
       - name: Permissão Gradle
         run: chmod +x ./gradlew
 
-      # 5. Executa a task customizada de testes instrumentados
+      # 5. Executa testes instrumentados
       - name: Testes instrumentados (API 33)
         run: ./gradlew ciInstrumentationPipeline --no-daemon --stacktrace
         env:
           ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
           JAVA_HOME: ${{ env.JAVA_HOME }}
 
-      # 6. Upload de relatórios mesmo se houver falhas
+      # 6. Upload de relatórios
       - name: Upload relatórios
         if: always()
         uses: actions/upload-artifact@v4

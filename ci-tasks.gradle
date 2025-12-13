@@ -104,16 +104,17 @@ tasks.register("stopEmulator") {
     }
 }
 
-// =======================
-// Pipeline CI
-// =======================
+// ci-tasks.gradle
+// Pipeline CI para testes instrumentados usando emulador gerenciado pelo GitHub Actions
+
 tasks.register("ciInstrumentationPipeline") {
-    doFirst {
-        println "=== Iniciando pipeline CI ==="
-    }
-    dependsOn "runInstrumentationTests"
-    finalizedBy "stopEmulator"
+    description = "Roda testes instrumentados no CI usando emulador padrão"
+    group = "verification"
+
+
+    dependsOn "connectedDebugAndroidTest"
 }
+
 
 // =======================
 // Pipeline local
