@@ -93,7 +93,7 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
-          target: google_apis
+          target: default                   # Imagem mais leve para economizar espaço
           arch: x86_64
           profile: pixel
           disable-animations: true
@@ -103,11 +103,11 @@ jobs:
             -no-boot-anim
             -gpu swiftshader_indirect
             -no-snapshot
-            -partition-size 2048
+            -partition-size 1024            # Reduz para caber no espaço do runner
             -wipe-data
           script: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace
 
-      # 4. Upload de relatórios
+      # 4. Upload de relatórios mesmo se houver falha
       - name: Upload relatórios
         if: always()
         uses: actions/upload-artifact@v4
@@ -116,4 +116,3 @@ jobs:
           path: |
             app/build/reports/androidTests/connected/
             app/build/outputs/androidTest-results/connected/
-
