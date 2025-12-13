@@ -16,10 +16,10 @@
         </DropdownSelection>
         <DialogSelection />
       </SelectionState>
-      <SelectionState runConfigName="SplitPaymentBottomSheetKtTest">
+      <SelectionState runConfigName="Tests in 'br'">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="Tests in 'br'">
+      <SelectionState runConfigName="Tests in 'br.thiago.splitmateapp'">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
     </selectionStates>

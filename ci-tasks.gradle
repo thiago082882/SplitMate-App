@@ -129,14 +129,14 @@ def avdManager = isWindows
         ? "${androidHome}\\cmdline-tools\\latest\\bin\\avdmanager.bat"
         : "${androidHome}/cmdline-tools/latest/bin/avdmanager"
 
-// Nome e diretório do AVD
+
 def avdName = "LOCAL_X86_API_33"
 def avdDir = "${userHome}/.android/avd"
 def iniPath = "${avdDir}/${avdName}.ini"
 
-// ======================
+
 // 1. Criar AVD x86_64
-// ======================
+
 task createEmulator(type: Exec) {
     doFirst {
         file(avdDir).mkdirs()
@@ -154,10 +154,7 @@ task createEmulator(type: Exec) {
             "--device", "pixel"
 }
 
-
-// ======================
 // 2. Iniciar emulador
-// ======================
 task startEmulator(type: Exec) {
     dependsOn createEmulator
     doLast {
@@ -176,9 +173,7 @@ task startEmulator(type: Exec) {
     }
 }
 
-// ======================
 // 3. Espera boot COMPLETO
-// ======================
 task waitForBoot(type: Exec) {
     dependsOn startEmulator
     doLast {
@@ -225,10 +220,7 @@ task waitForBoot(type: Exec) {
         }
     }
 }
-
-// ======================
 // 4. Executa testes
-// ======================
 task runInstrumentationTests(type: Exec) {
     dependsOn waitForBoot
     if (isWindows) {
@@ -237,10 +229,7 @@ task runInstrumentationTests(type: Exec) {
         commandLine "./gradlew", ":app:connectedDebugAndroidTest"
     }
 }
-
-// ======================
 // 5. Finaliza emulador
-// ======================
 task stopEmulator(type: Exec) {
     doLast {
         exec {
@@ -248,10 +237,7 @@ task stopEmulator(type: Exec) {
         }
     }
 }
-
-// ======================
 // 6. Pipeline completo
-// ======================
 task localInstrumentationPipeline {
     dependsOn runInstrumentationTests
     finalizedBy stopEmulator
