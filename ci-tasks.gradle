@@ -131,7 +131,7 @@ def avdDir = "${userHome}/.android/avd"
 def iniPath = "${avdDir}/${avdName}.ini"
 
 // ======================
-// 1. Criar AVD x86_64
+// 1. Criar AVD x86_64 com Google APIs
 // ======================
 task createEmulator(type: Exec) {
     doFirst {
@@ -192,8 +192,14 @@ task waitForBoot(type: Exec) {
         } else {
             commandLine "bash", "-c", """
                 adb wait-for-device
-                until [[ \$(adb shell getprop sys.boot_completed | tr -d '\\r') == "1" ]]; do sleep 3; done
+                TIMEOUT=300
+                ELAPSED=0
+                until [[ \$(adb shell getprop sys.boot_completed | tr -d '\\r') == "1" ]] || [ \$ELAPSED -ge \$TIMEOUT ]; do
+                    sleep 5
+                    ELAPSED=\$((ELAPSED + 5))
+                done
                 adb shell input keyevent 82
+                # Disable animations
                 adb shell settings put global window_animation_scale 0.0
                 adb shell settings put global transition_animation_scale 0.0
                 adb shell settings put global animator_duration_scale 0.0

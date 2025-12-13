@@ -108,7 +108,10 @@ jobs:
           export ANDROID_HOME=$HOME/android-sdk
           export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools:$PATH
           yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-${{ matrix.api-level }}" "emulator" "system-images;android-${{ matrix.api-level }};default;x86_64"
+          sdkmanager "platform-tools" \
+                     "platforms;android-${{ matrix.api-level }}" \
+                     "emulator" \
+                     "system-images;android-${{ matrix.api-level }};google_apis;x86_64"
 
       - name: Create AVD
         run: |
