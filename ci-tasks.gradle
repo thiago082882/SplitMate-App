@@ -1,23 +1,37 @@
 import org.gradle.internal.os.OperatingSystem
 
 def androidHome = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
-def emulator = "${androidHome}/emulator/emulator"
-def avdManager = "${androidHome}/cmdline-tools/latest/bin/avdmanager"
-def sdkManager = "${androidHome}/cmdline-tools/latest/bin/sdkmanager"
-def homeDir = System.getenv("HOME")
+def userHome = System.getProperty("user.home")
+
+
+def emulator = "${androidHome}\\emulator\\emulator.exe"
+def avdManager = "${androidHome}\\cmdline-tools\\latest\\bin\\avdmanager.bat"
+def sdkManager = "${androidHome}\\cmdline-tools\\latest\\bin\\sdkmanager.bat"
+
+def avdDir = "${userHome}\\.android\\avd"
+def iniPath = "${avdDir}\\CI_API_33.ini"
+
 
 task installSystemImage(type: Exec) {
     commandLine sdkManager, "--install", "system-images;android-33;google_apis;x86_64"
 }
 
+
 task createEmulator(type: Exec) {
     dependsOn installSystemImage
 
     doFirst {
-        exec {
-            commandLine "bash", "-c", "mkdir -p ${homeDir}/.android/avd"
+        // cria diretório .android/avd se não existir
+        new File(avdDir).mkdirs()
+
+
+        def iniFile = new File(iniPath)
+        if (iniFile.exists()) {
+            iniFile.delete()
         }
     }
+
+    environment "ANDROID_SDK_HOME", userHome
 
     commandLine avdManager, "create", "avd",
             "--force",
@@ -25,6 +39,7 @@ task createEmulator(type: Exec) {
             "--package", "system-images;android-33;google_apis;x86_64",
             "--device", "pixel"
 }
+
 
 task startEmulator {
     dependsOn createEmulator
@@ -42,30 +57,38 @@ task startEmulator {
     }
 }
 
+
 task waitForBoot(type: Exec) {
     dependsOn startEmulator
 
-    commandLine "bash", "-c", """
-        adb wait-for-device
-        until [[ "\$(adb shell getprop sys.boot_completed | tr -d '\r')" == "1" ]]; do
-            sleep 3
-        done
+    commandLine "cmd", "/c", """
+        adb wait-for-device &&
+        adb shell getprop sys.boot_completed
+        :check
+        for /f "delims=" %%a in ('adb shell getprop sys.boot_completed') do (
+            if "%%a"=="1" goto ready
+        )
+        timeout /t 3 >nul
+        goto check
+        :ready
         adb shell input keyevent 82
     """
 }
 
+
 task runInstrumentationTests(type: Exec) {
     dependsOn waitForBoot
-    commandLine "./gradlew", "connectedDebugAndroidTest", "--stacktrace"
+    commandLine "cmd", "/c", "gradlew connectedDebugAndroidTest"
 }
 
 task stopEmulator(type: Exec) {
     doLast {
         exec {
-            commandLine "bash", "-c", "adb emu kill || true"
+            commandLine "cmd", "/c", "adb emu kill"
         }
     }
 }
+
 
 task ciInstrumentationPipeline {
     dependsOn runInstrumentationTests
