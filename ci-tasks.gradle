@@ -16,10 +16,6 @@ def avdManager = isWindows
         ? "${androidHome}\\cmdline-tools\\latest\\bin\\avdmanager.bat"
         : "${androidHome}/cmdline-tools/latest/bin/avdmanager"
 
-def sdkManager = isWindows
-        ? "${androidHome}\\cmdline-tools\\latest\\bin\\sdkmanager.bat"
-        : "${androidHome}/cmdline-tools/latest/bin/sdkmanager"
-
 // =======================
 // AVD config (LOCAL e CI)
 // =======================
@@ -30,15 +26,7 @@ def iniPath = "${avdDir}/${avdName}.ini"
 // =======================
 // Tasks para criar e iniciar AVD
 // =======================
-tasks.register("installSystemImage", Exec) {
-    commandLine sdkManager,
-            "--install",
-            "system-images;android-33;google_apis;x86_64"
-}
-
 tasks.register("createEmulator", Exec) {
-    dependsOn "installSystemImage"
-
     doFirst {
         new File(avdDir).mkdirs()
         def iniFile = new File(iniPath)
@@ -117,20 +105,20 @@ tasks.register("stopEmulator") {
 }
 
 // =======================
-// Pipeline local
-// =======================
-tasks.register("localInstrumentationPipeline") {
-    dependsOn "runInstrumentationTests"
-    finalizedBy "stopEmulator"
-}
-
-// =======================
 // Pipeline CI
 // =======================
 tasks.register("ciInstrumentationPipeline") {
     doFirst {
         println "=== Iniciando pipeline CI ==="
     }
+    dependsOn "runInstrumentationTests"
+    finalizedBy "stopEmulator"
+}
+
+// =======================
+// Pipeline local
+// =======================
+tasks.register("localInstrumentationPipeline") {
     dependsOn "runInstrumentationTests"
     finalizedBy "stopEmulator"
 }
