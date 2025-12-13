@@ -88,13 +88,13 @@ jobs:
           java-version: 17
           cache: gradle
 
-      # 3. Setup Android Emulator
+      # 3. Setup Android SDK + Emulador ARM
       - name: Setup Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
-          target: default
-          arch: x86_64
+          target: google_apis
+          arch: arm64-v8a               # ARM evita KVM
           profile: pixel
           disable-animations: true
           cores: 2
@@ -109,7 +109,7 @@ jobs:
             -no-boot-anim
             -gpu swiftshader_indirect
             -no-snapshot
-            -partition-size 512    # Reduz para evitar erro de espaço
+            -partition-size 512
             -wipe-data
           script: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace
 
