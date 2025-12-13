@@ -1,19 +1,36 @@
 import org.gradle.internal.os.OperatingSystem
 
+
+def isCI = System.getenv("CI") != null
+
 def androidHome = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
 def userHome = System.getProperty("user.home")
 
+def os = OperatingSystem.current()
+def isWindows = os.isWindows()
 
-def emulator = "${androidHome}\\emulator\\emulator.exe"
-def avdManager = "${androidHome}\\cmdline-tools\\latest\\bin\\avdmanager.bat"
-def sdkManager = "${androidHome}\\cmdline-tools\\latest\\bin\\sdkmanager.bat"
+def emulator = isWindows
+        ? "${androidHome}\\emulator\\emulator.exe"
+        : "${androidHome}/emulator/emulator"
 
-def avdDir = "${userHome}\\.android\\avd"
-def iniPath = "${avdDir}\\CI_API_33.ini"
+def avdManager = isWindows
+        ? "${androidHome}\\cmdline-tools\\latest\\bin\\avdmanager.bat"
+        : "${androidHome}/cmdline-tools/latest/bin/avdmanager"
+
+def sdkManager = isWindows
+        ? "${androidHome}\\cmdline-tools\\latest\\bin\\sdkmanager.bat"
+        : "${androidHome}/cmdline-tools/latest/bin/sdkmanager"
+
+
+def avdName = "CI_API_33"
+def avdDir = "${userHome}/.android/avd"
+def iniPath = "${avdDir}/${avdName}.ini"
 
 
 task installSystemImage(type: Exec) {
-    commandLine sdkManager, "--install", "system-images;android-33;google_apis;x86_64"
+    commandLine sdkManager,
+            "--install",
+            "system-images;android-33;google_apis;x86_64"
 }
 
 
@@ -21,9 +38,7 @@ task createEmulator(type: Exec) {
     dependsOn installSystemImage
 
     doFirst {
-        // cria diretório .android/avd se não existir
         new File(avdDir).mkdirs()
-
 
         def iniFile = new File(iniPath)
         if (iniFile.exists()) {
@@ -33,9 +48,10 @@ task createEmulator(type: Exec) {
 
     environment "ANDROID_SDK_HOME", userHome
 
-    commandLine avdManager, "create", "avd",
+    commandLine avdManager,
+            "create", "avd",
             "--force",
-            "--name", "CI_API_33",
+            "--name", avdName,
             "--package", "system-images;android-33;google_apis;x86_64",
             "--device", "pixel"
 }
@@ -47,44 +63,58 @@ task startEmulator {
     doLast {
         exec {
             commandLine emulator,
-                    "@CI_API_33",
+                    "@${avdName}",
                     "-no-window",
                     "-no-audio",
                     "-no-boot-anim",
                     "-gpu", "swiftshader_indirect",
-                    "-no-snapshot"
+                    "-no-snapshot",
+                    "-accel", isCI ? "off" : "auto",
+                    "-partition-size", "2048"
         }
     }
 }
 
-
 task waitForBoot(type: Exec) {
     dependsOn startEmulator
 
-    commandLine "cmd", "/c", """
-        adb wait-for-device &&
-        adb shell getprop sys.boot_completed
-        :check
-        for /f "delims=" %%a in ('adb shell getprop sys.boot_completed') do (
-            if "%%a"=="1" goto ready
-        )
-        timeout /t 3 >nul
-        goto check
-        :ready
-        adb shell input keyevent 82
-    """
+    if (isWindows) {
+        commandLine "cmd", "/c", """
+            adb wait-for-device
+            :check
+            for /f "delims=" %%a in ('adb shell getprop sys.boot_completed') do (
+                if "%%a"=="1" goto ready
+            )
+            timeout /t 3 >nul
+            goto check
+            :ready
+            adb shell input keyevent 82
+        """
+    } else {
+        commandLine "bash", "-c", """
+            adb wait-for-device
+            until [[ \$(adb shell getprop sys.boot_completed | tr -d '\\r') == "1" ]]; do
+              sleep 3
+            done
+            adb shell input keyevent 82
+        """
+    }
 }
 
 
 task runInstrumentationTests(type: Exec) {
     dependsOn waitForBoot
-    commandLine "cmd", "/c", "gradlew connectedDebugAndroidTest"
+
+    commandLine isWindows
+            ? ["cmd", "/c", "gradlew connectedDebugAndroidTest"]
+            : ["./gradlew", "connectedDebugAndroidTest"]
 }
 
-task stopEmulator(type: Exec) {
+
+task stopEmulator {
     doLast {
         exec {
-            commandLine "cmd", "/c", "adb emu kill"
+            commandLine "adb", "emu", "kill"
         }
     }
 }
