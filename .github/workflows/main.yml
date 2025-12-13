@@ -170,8 +170,10 @@ jobs:
 
       - name: Run instrumentation tests
         run: |
+          unset ANDROID_SDK_ROOT
           export ANDROID_HOME=$HOME/android-sdk
-          export PATH=$ANDROID_HOME/platform-tools:$PATH
+          export PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH
+
           ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace
 
       - name: Stop emulator
