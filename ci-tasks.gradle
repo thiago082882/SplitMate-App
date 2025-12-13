@@ -1,6 +1,5 @@
 import org.gradle.internal.os.OperatingSystem
 
-
 def isCI = System.getenv("CI") == "true"
 
 def androidHome = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
@@ -8,7 +7,6 @@ def userHome = System.getProperty("user.home")
 
 def os = OperatingSystem.current()
 def isWindows = os.isWindows()
-
 
 def emulator = isWindows
         ? "${androidHome}\\emulator\\emulator.exe"
@@ -23,28 +21,15 @@ def sdkManager = isWindows
         : "${androidHome}/cmdline-tools/latest/bin/sdkmanager"
 
 // =======================
-// AVD config (LOCAL)
+// AVD config (LOCAL e CI)
 // =======================
-def avdName = "LOCAL_API_33"
+def avdName = "CI_API_33"
 def avdDir = "${userHome}/.android/avd"
 def iniPath = "${avdDir}/${avdName}.ini"
 
 // =======================
-// BLOQUEIO TOTAL NO CI
+// Tasks para criar e iniciar AVD
 // =======================
-if (isCI) {
-    tasks.configureEach {
-        if (name.toLowerCase().contains("emulator") ||
-                name.toLowerCase().contains("avd") ||
-                name.toLowerCase().contains("systemimage")) {
-            enabled = false
-        }
-    }
-    return
-}
-
-
-
 tasks.register("installSystemImage", Exec) {
     commandLine sdkManager,
             "--install",
@@ -131,7 +116,21 @@ tasks.register("stopEmulator") {
     }
 }
 
+// =======================
+// Pipeline local
+// =======================
 tasks.register("localInstrumentationPipeline") {
+    dependsOn "runInstrumentationTests"
+    finalizedBy "stopEmulator"
+}
+
+// =======================
+// Pipeline CI
+// =======================
+tasks.register("ciInstrumentationPipeline") {
+    doFirst {
+        println "=== Iniciando pipeline CI ==="
+    }
     dependsOn "runInstrumentationTests"
     finalizedBy "stopEmulator"
 }
