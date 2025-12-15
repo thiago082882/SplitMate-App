@@ -248,14 +248,13 @@
 //}
 
 
-
 import org.gradle.internal.os.OperatingSystem
 
+// env
 def isWindows = OperatingSystem.current().isWindows()
-
-def androidHome = System.getenv("ANDROID_HOME")
+def androidHome = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
 if (!androidHome) {
-    throw new GradleException("ANDROID_HOME não definido")
+    throw new GradleException("ANDROID_HOME ou ANDROID_SDK_ROOT não definido")
 }
 
 def userHome = System.getProperty("user.home")
@@ -272,17 +271,17 @@ def avdManager = isWindows
         ? "${androidHome}\\cmdline-tools\\latest\\bin\\avdmanager.bat"
         : "${androidHome}/cmdline-tools/latest/bin/avdmanager"
 
+// avd
 def avdName = "LOCAL_X86_API_33"
 def avdDir = "${userHome}/.android/avd"
 def iniPath = "${avdDir}/${avdName}.ini"
 
-
-// 1️⃣ CREATE AVD
+// create avd
 tasks.register("createEmulator", Exec) {
     doFirst {
         file(avdDir).mkdirs()
-        def ini = file(iniPath)
-        if (ini.exists()) ini.delete()
+        def iniFile = file(iniPath)
+        if (iniFile.exists()) iniFile.delete()
     }
 
     environment "ANDROID_SDK_HOME", userHome
@@ -295,58 +294,50 @@ tasks.register("createEmulator", Exec) {
             "--device", "pixel"
 }
 
-
-// 2️⃣ START EMULATOR + FIX ADB
-tasks.register("startEmulator") {
+// start emulator
+tasks.register("startEmulator", Exec) {
     dependsOn "createEmulator"
 
-    doLast {
-        exec {
-            commandLine adb, "kill-server"
-            ignoreExitValue = true
-        }
-
-        exec {
-            commandLine adb, "start-server"
-        }
-
-        exec {
-            commandLine emulator,
-                    "-avd", avdName,
-                    "-no-window",
-                    "-no-audio",
-                    "-no-boot-anim",
-                    "-gpu", "swiftshader_indirect",
-                    "-no-snapshot",
-                    "-partition-size", "1024",
-                    "-wipe-data",
-                    "-accel", "off"
-        }
-    }
+    commandLine emulator,
+            "-avd", avdName,
+            "-no-window",
+            "-no-audio",
+            "-no-boot-anim",
+            "-gpu", "swiftshader_indirect",
+            "-no-snapshot",
+            "-wipe-data",
+            "-partition-size", "1024",
+            "-accel", "off"
 }
 
-
-// 3️⃣ WAIT FULL BOOT (CI SAFE)
+// wait boot
 tasks.register("waitForBoot") {
     dependsOn "startEmulator"
 
     doLast {
-        exec {
-            commandLine adb, "start-server"
-        }
-
-        exec {
-            commandLine adb, "wait-for-device"
-        }
+        exec { commandLine adb, "kill-server" }
+        exec { commandLine adb, "start-server" }
+        exec { commandLine adb, "wait-for-device" }
 
         exec {
             commandLine "bash", "-c", """
-                until [[ \$(adb shell getprop sys.boot_completed | tr -d '\\r') == "1" ]]; do
+                BOOT=""
+                for i in {1..144}; do
+                  BOOT=\$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')
+                  if [[ "\$BOOT" == "1" ]]; then
+                    break
+                  fi
                   sleep 5
                 done
 
-                until adb shell cmd package list packages >/dev/null 2>&1; do
-                  sleep 5
+                if [[ "\$BOOT" != "1" ]]; then
+                  adb emu kill || true
+                  exit 1
+                fi
+
+                for i in {1..60}; do
+                  adb shell cmd package list packages >/dev/null 2>&1 && break
+                  sleep 3
                 done
 
                 adb shell input keyevent 82
@@ -358,26 +349,46 @@ tasks.register("waitForBoot") {
     }
 }
 
-
-// 4️⃣ RUN TESTS
-tasks.register("runInstrumentationTests", Exec) {
+// validate device
+tasks.register("validateDevice") {
     dependsOn "waitForBoot"
-    commandLine "./gradlew", ":app:connectedDebugAndroidTest"
-}
 
-
-// 5️⃣ STOP EMULATOR
-tasks.register("stopEmulator") {
     doLast {
+        exec { commandLine adb, "devices" }
+
         exec {
-            commandLine adb, "emu", "kill"
-            ignoreExitValue = true
+            commandLine "bash", "-c", """
+                adb shell pm list instrumentation | grep -q androidJUnitRunner
+                if [[ \$? -ne 0 ]]; then
+                  adb emu kill || true
+                  exit 1
+                fi
+            """
         }
     }
 }
 
+// run tests
+tasks.register("runInstrumentationTests", Exec) {
+    dependsOn "validateDevice"
 
-// 6️⃣ FULL PIPELINE
+    commandLine "./gradlew",
+            ":app:connectedDebugAndroidTest",
+            "--no-daemon",
+            "--stacktrace"
+}
+
+// stop emulator
+tasks.register("stopEmulator") {
+    doLast {
+        exec {
+            commandLine adb, "emu", "kill"
+            ignoreExitValue true
+        }
+    }
+}
+
+// pipeline
 tasks.register("localInstrumentationPipeline") {
     dependsOn "runInstrumentationTests"
     finalizedBy "stopEmulator"

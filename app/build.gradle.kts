@@ -45,12 +45,12 @@ android {
     buildFeatures {
         compose = true
     }
-//
-//    bundle {
-//        language { enableSplit = false }
-//        density  { enableSplit = false }
-//        abi      { enableSplit = false }
-//    }
+
+    bundle {
+        language { enableSplit = false }
+        density  { enableSplit = false }
+        abi      { enableSplit = false }
+    }
 }
 
 dependencies {
