@@ -215,6 +215,9 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
       - name: Setup Android SDK
         run: |
           export ANDROID_HOME=$HOME/android-sdk
@@ -253,3 +256,4 @@ jobs:
           path: |
             app/build/reports/androidTests/connected/
             app/build/outputs/androidTest-results/connected/
+
