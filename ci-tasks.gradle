@@ -252,12 +252,17 @@
 import org.gradle.internal.os.OperatingSystem
 
 def isWindows = OperatingSystem.current().isWindows()
-def androidHome = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
+
+def androidHome = System.getenv("ANDROID_HOME")
 if (!androidHome) {
-    throw new GradleException("ANDROID_HOME ou ANDROID_SDK_ROOT não definido")
+    throw new GradleException("ANDROID_HOME não definido")
 }
 
 def userHome = System.getProperty("user.home")
+
+def adb = isWindows
+        ? "${androidHome}\\platform-tools\\adb.exe"
+        : "${androidHome}/platform-tools/adb"
 
 def emulator = isWindows
         ? "${androidHome}\\emulator\\emulator.exe"
@@ -267,47 +272,46 @@ def avdManager = isWindows
         ? "${androidHome}\\cmdline-tools\\latest\\bin\\avdmanager.bat"
         : "${androidHome}/cmdline-tools/latest/bin/avdmanager"
 
-def adb = isWindows
-        ? "${androidHome}\\platform-tools\\adb.exe"
-        : "${androidHome}/platform-tools/adb"
-
 def avdName = "LOCAL_X86_API_33"
 def avdDir = "${userHome}/.android/avd"
 def iniPath = "${avdDir}/${avdName}.ini"
 
 
-// 1. Criar AVD
-
+// 1️⃣ CREATE AVD
 tasks.register("createEmulator", Exec) {
-
     doFirst {
         file(avdDir).mkdirs()
-        def iniFile = file(iniPath)
-        if (iniFile.exists()) iniFile.delete()
+        def ini = file(iniPath)
+        if (ini.exists()) ini.delete()
     }
 
     environment "ANDROID_SDK_HOME", userHome
 
-    commandLine(
-            avdManager,
+    commandLine avdManager,
             "create", "avd",
             "--force",
             "--name", avdName,
             "--package", "system-images;android-33;default;x86_64",
             "--device", "pixel"
-    )
 }
 
 
-// 2. Iniciar Emulador (NÃO É Exec)
-
+// 2️⃣ START EMULATOR + FIX ADB
 tasks.register("startEmulator") {
     dependsOn "createEmulator"
 
     doLast {
         exec {
-            commandLine(
-                    emulator,
+            commandLine adb, "kill-server"
+            ignoreExitValue = true
+        }
+
+        exec {
+            commandLine adb, "start-server"
+        }
+
+        exec {
+            commandLine emulator,
                     "-avd", avdName,
                     "-no-window",
                     "-no-audio",
@@ -317,96 +321,63 @@ tasks.register("startEmulator") {
                     "-partition-size", "1024",
                     "-wipe-data",
                     "-accel", "off"
-            )
         }
     }
 }
 
 
-// 3. Esperar boot completo
-
+// 3️⃣ WAIT FULL BOOT (CI SAFE)
 tasks.register("waitForBoot") {
     dependsOn "startEmulator"
 
     doLast {
-        if (isWindows) {
-            exec {
-                commandLine(
-                        "cmd", "/c", """
-                        ${adb} wait-for-device
+        exec {
+            commandLine adb, "start-server"
+        }
 
-                        :boot
-                        for /f "delims=" %%a in ('${adb} shell getprop sys.boot_completed') do (
-                            if "%%a"=="1" goto package
-                        )
-                        timeout /t 3 >nul
-                        goto boot
+        exec {
+            commandLine adb, "wait-for-device"
+        }
 
-                        :package
-                        ${adb} shell cmd package list packages >nul 2>&1
-                        if errorlevel 1 (
-                            timeout /t 3 >nul
-                            goto package
-                        )
+        exec {
+            commandLine "bash", "-c", """
+                until [[ \$(adb shell getprop sys.boot_completed | tr -d '\\r') == "1" ]]; do
+                  sleep 5
+                done
 
-                        ${adb} shell input keyevent 82
-                        ${adb} shell settings put global window_animation_scale 0
-                        ${adb} shell settings put global transition_animation_scale 0
-                        ${adb} shell settings put global animator_duration_scale 0
-                        """
-                )
-            }
-        } else {
-            exec {
-                commandLine(
-                        "bash", "-c", """
-                        ${adb} wait-for-device
+                until adb shell cmd package list packages >/dev/null 2>&1; do
+                  sleep 5
+                done
 
-                        until [[ \$(${adb} shell getprop sys.boot_completed | tr -d '\\r') == "1" ]]; do
-                          sleep 3
-                        done
-
-                        until ${adb} shell cmd package list packages >/dev/null 2>&1; do
-                          sleep 3
-                        done
-
-                        ${adb} shell input keyevent 82
-                        ${adb} shell settings put global window_animation_scale 0
-                        ${adb} shell settings put global transition_animation_scale 0
-                        ${adb} shell settings put global animator_duration_scale 0
-                        """
-                )
-            }
+                adb shell input keyevent 82
+                adb shell settings put global window_animation_scale 0
+                adb shell settings put global transition_animation_scale 0
+                adb shell settings put global animator_duration_scale 0
+            """
         }
     }
 }
 
 
-// 4. Rodar testes instrumentados
-
+// 4️⃣ RUN TESTS
 tasks.register("runInstrumentationTests", Exec) {
     dependsOn "waitForBoot"
-
-    commandLine(
-            isWindows ? "gradlew" : "./gradlew",
-            ":app:connectedDebugAndroidTest"
-    )
+    commandLine "./gradlew", ":app:connectedDebugAndroidTest"
 }
 
 
-// 5. Finalizar emulador
-
+// 5️⃣ STOP EMULATOR
 tasks.register("stopEmulator") {
     doLast {
         exec {
-            commandLine(adb, "emu", "kill")
+            commandLine adb, "emu", "kill"
+            ignoreExitValue = true
         }
     }
 }
 
 
-// 6. Pipeline completo
-
+// 6️⃣ FULL PIPELINE
 tasks.register("localInstrumentationPipeline") {
     dependsOn "runInstrumentationTests"
     finalizedBy "stopEmulator"
