@@ -60,7 +60,139 @@
 #          path: |
 #            app/build/reports/androidTests/connected/
 #            app/build/outputs/androidTest-results/connected/
-name: Android CI - SplitMate (No External Emulator Runner)
+#name: Android CI - SplitMate (No External Emulator Runner)
+#
+#on:
+#  push:
+#    branches: [master, main]
+#  pull_request:
+#    branches: [master, main]
+#  workflow_dispatch:
+#
+#jobs:
+#  instrumentation-tests:
+#    runs-on: ubuntu-latest
+#    timeout-minutes: 60
+#
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        api-level: [33]
+#
+#    steps:
+#      - name: Checkout code
+#        uses: actions/checkout@v4
+#
+#      - name: Setup JDK 17
+#        uses: actions/setup-java@v4
+#        with:
+#          distribution: temurin
+#          java-version: 17
+#
+#      - name: Make Gradle wrapper executable
+#        run: chmod +x ./gradlew
+#
+#      - name: Install Android SDK cmdline-tools
+#        run: |
+#          export ANDROID_HOME=$HOME/android-sdk
+#          export ANDROID_SDK_ROOT=$ANDROID_HOME
+#
+#          mkdir -p $ANDROID_HOME/cmdline-tools
+#          cd $ANDROID_HOME/cmdline-tools
+#
+#          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O tools.zip
+#          unzip -q tools.zip
+#          mv cmdline-tools latest
+#          rm tools.zip
+#
+#      - name: Install SDK packages
+#        run: |
+#          export ANDROID_HOME=$HOME/android-sdk
+#          export ANDROID_SDK_ROOT=$ANDROID_HOME
+#          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
+#
+#          yes | sdkmanager --licenses
+#
+#          sdkmanager \
+#            "platform-tools" \
+#            "platforms;android-${{ matrix.api-level }}" \
+#            "emulator" \
+#            "system-images;android-${{ matrix.api-level }};default;x86_64"
+#
+#      - name: Create AVD
+#        run: |
+#          export ANDROID_HOME=$HOME/android-sdk
+#          export ANDROID_SDK_ROOT=$ANDROID_HOME
+#          export ANDROID_AVD_HOME=$HOME/.android/avd
+#          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
+#
+#          mkdir -p "$ANDROID_AVD_HOME"
+#
+#          echo no | avdmanager create avd \
+#            --force \
+#            --name test \
+#            --package "system-images;android-${{ matrix.api-level }};default;x86_64" \
+#            --device pixel \
+#            --sdcard 512M
+#
+#      - name: Start emulator
+#        run: |
+#          export ANDROID_HOME=$HOME/android-sdk
+#          export ANDROID_SDK_ROOT=$ANDROID_HOME
+#          export ANDROID_AVD_HOME=$HOME/.android/avd
+#          export PATH=$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools:$PATH
+#
+#          $ANDROID_HOME/emulator/emulator \
+#            -avd test \
+#            -no-window \
+#            -no-audio \
+#            -no-boot-anim \
+#            -gpu swiftshader_indirect \
+#            -no-snapshot \
+#            -partition-size 800 \
+#            -wipe-data \
+#            -accel off &
+#
+#          adb wait-for-device
+#
+#          until [[ "$(adb shell getprop sys.boot_completed | tr -d '\r')" == "1" ]]; do
+#            sleep 5
+#          done
+#
+#          until adb shell cmd package list packages >/dev/null 2>&1; do
+#            sleep 5
+#          done
+#
+#          adb shell input keyevent 82
+#          adb shell settings put global window_animation_scale 0
+#          adb shell settings put global transition_animation_scale 0
+#          adb shell settings put global animator_duration_scale 0
+#
+#      - name: Run instrumentation tests
+#        run: |
+#          unset ANDROID_SDK_ROOT
+#          export ANDROID_HOME=$HOME/android-sdk
+#          export PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH
+#
+#          ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace
+#
+#      - name: Stop emulator
+#        if: always()
+#        run: |
+#          export ANDROID_HOME=$HOME/android-sdk
+#          export PATH=$ANDROID_HOME/platform-tools:$PATH
+#          adb emu kill || true
+#
+#      - name: Upload test reports
+#        if: always()
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: instrumentation-test-report-api-${{ matrix.api-level }}
+#          path: |
+#            app/build/reports/androidTests/connected/
+#            app/build/outputs/androidTest-results/connected/
+#
+name: Android CI - SplitMate (Gradle Driven)
 
 on:
   push:
@@ -74,14 +206,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
-    strategy:
-      fail-fast: false
-      matrix:
-        api-level: [33]
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup JDK 17
         uses: actions/setup-java@v4
@@ -89,10 +215,7 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Make Gradle wrapper executable
-        run: chmod +x ./gradlew
-
-      - name: Install Android SDK cmdline-tools
+      - name: Setup Android SDK
         run: |
           export ANDROID_HOME=$HOME/android-sdk
           export ANDROID_SDK_ROOT=$ANDROID_HOME
@@ -105,90 +228,28 @@ jobs:
           mv cmdline-tools latest
           rm tools.zip
 
-      - name: Install SDK packages
-        run: |
-          export ANDROID_HOME=$HOME/android-sdk
-          export ANDROID_SDK_ROOT=$ANDROID_HOME
           export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
 
           yes | sdkmanager --licenses
 
           sdkmanager \
             "platform-tools" \
-            "platforms;android-${{ matrix.api-level }}" \
             "emulator" \
-            "system-images;android-${{ matrix.api-level }};default;x86_64"
+            "platforms;android-33" \
+            "system-images;android-33;default;x86_64"
 
-      - name: Create AVD
+      - name: Run instrumentation pipeline (Gradle)
         run: |
-          export ANDROID_HOME=$HOME/android-sdk
-          export ANDROID_SDK_ROOT=$ANDROID_HOME
-          export ANDROID_AVD_HOME=$HOME/.android/avd
-          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
-
-          mkdir -p "$ANDROID_AVD_HOME"
-
-          echo no | avdmanager create avd \
-            --force \
-            --name test \
-            --package "system-images;android-${{ matrix.api-level }};default;x86_64" \
-            --device pixel \
-            --sdcard 512M
-
-      - name: Start emulator
-        run: |
-          export ANDROID_HOME=$HOME/android-sdk
-          export ANDROID_SDK_ROOT=$ANDROID_HOME
-          export ANDROID_AVD_HOME=$HOME/.android/avd
-          export PATH=$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools:$PATH
-
-          $ANDROID_HOME/emulator/emulator \
-            -avd test \
-            -no-window \
-            -no-audio \
-            -no-boot-anim \
-            -gpu swiftshader_indirect \
-            -no-snapshot \
-            -partition-size 800 \
-            -wipe-data \
-            -accel off &
-
-          adb wait-for-device
-
-          until [[ "$(adb shell getprop sys.boot_completed | tr -d '\r')" == "1" ]]; do
-            sleep 5
-          done
-
-          until adb shell cmd package list packages >/dev/null 2>&1; do
-            sleep 5
-          done
-
-          adb shell input keyevent 82
-          adb shell settings put global window_animation_scale 0
-          adb shell settings put global transition_animation_scale 0
-          adb shell settings put global animator_duration_scale 0
-
-      - name: Run instrumentation tests
-        run: |
-          unset ANDROID_SDK_ROOT
           export ANDROID_HOME=$HOME/android-sdk
           export PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH
 
-          ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace
-
-      - name: Stop emulator
-        if: always()
-        run: |
-          export ANDROID_HOME=$HOME/android-sdk
-          export PATH=$ANDROID_HOME/platform-tools:$PATH
-          adb emu kill || true
+          ./gradlew localInstrumentationPipeline --no-daemon --stacktrace
 
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: instrumentation-test-report-api-${{ matrix.api-level }}
+          name: instrumentation-test-report
           path: |
             app/build/reports/androidTests/connected/
             app/build/outputs/androidTest-results/connected/
-
