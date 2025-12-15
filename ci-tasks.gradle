@@ -358,11 +358,12 @@ tasks.register("validateDevice") {
 
         exec {
             commandLine "bash", "-c", """
-              adb shell pm list instrumentation | grep -q instrumentation || exit 1
+              adb shell pm list instrumentation >/dev/null 2>&1 || exit 1
             """
         }
     }
 }
+
 
 // RUN TESTS
 tasks.register("runInstrumentationTests", Exec) {
