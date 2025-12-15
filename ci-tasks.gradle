@@ -247,11 +247,10 @@
 //    finalizedBy stopEmulator
 //}
 
-
 import org.gradle.internal.os.OperatingSystem
 
-// env
 def isWindows = OperatingSystem.current().isWindows()
+
 def androidHome = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
 if (!androidHome) {
     throw new GradleException("ANDROID_HOME ou ANDROID_SDK_ROOT não definido")
@@ -271,12 +270,11 @@ def avdManager = isWindows
         ? "${androidHome}\\cmdline-tools\\latest\\bin\\avdmanager.bat"
         : "${androidHome}/cmdline-tools/latest/bin/avdmanager"
 
-// avd
 def avdName = "LOCAL_X86_API_33"
 def avdDir = "${userHome}/.android/avd"
 def iniPath = "${avdDir}/${avdName}.ini"
 
-// create avd
+// CREATE AVD
 tasks.register("createEmulator", Exec) {
     doFirst {
         file(avdDir).mkdirs()
@@ -294,23 +292,30 @@ tasks.register("createEmulator", Exec) {
             "--device", "pixel"
 }
 
-// start emulator
-tasks.register("startEmulator", Exec) {
+// START EMULATOR (BACKGROUND REAL)
+tasks.register("startEmulator") {
     dependsOn "createEmulator"
 
-    commandLine emulator,
-            "-avd", avdName,
-            "-no-window",
-            "-no-audio",
-            "-no-boot-anim",
-            "-gpu", "swiftshader_indirect",
-            "-no-snapshot",
-            "-wipe-data",
-            "-partition-size", "1024",
-            "-accel", "off"
+    doLast {
+        exec {
+            commandLine "bash", "-c", """
+              nohup ${emulator} \
+                -avd ${avdName} \
+                -no-window \
+                -no-audio \
+                -no-boot-anim \
+                -gpu swiftshader_indirect \
+                -no-snapshot \
+                -wipe-data \
+                -partition-size 1024 \
+                -accel off \
+                > emulator.log 2>&1 &
+            """
+        }
+    }
 }
 
-// wait boot
+// WAIT FOR BOOT
 tasks.register("waitForBoot") {
     dependsOn "startEmulator"
 
@@ -321,35 +326,30 @@ tasks.register("waitForBoot") {
 
         exec {
             commandLine "bash", "-c", """
-                BOOT=""
-                for i in {1..144}; do
-                  BOOT=\$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')
-                  if [[ "\$BOOT" == "1" ]]; then
-                    break
-                  fi
-                  sleep 5
-                done
+              BOOT=""
+              for i in {1..144}; do
+                BOOT=\$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')
+                [[ "\$BOOT" == "1" ]] && break
+                sleep 5
+              done
 
-                if [[ "\$BOOT" != "1" ]]; then
-                  adb emu kill || true
-                  exit 1
-                fi
+              [[ "\$BOOT" != "1" ]] && exit 1
 
-                for i in {1..60}; do
-                  adb shell cmd package list packages >/dev/null 2>&1 && break
-                  sleep 3
-                done
+              for i in {1..60}; do
+                adb shell cmd package list packages >/dev/null 2>&1 && break
+                sleep 3
+              done
 
-                adb shell input keyevent 82
-                adb shell settings put global window_animation_scale 0
-                adb shell settings put global transition_animation_scale 0
-                adb shell settings put global animator_duration_scale 0
+              adb shell input keyevent 82
+              adb shell settings put global window_animation_scale 0
+              adb shell settings put global transition_animation_scale 0
+              adb shell settings put global animator_duration_scale 0
             """
         }
     }
 }
 
-// validate device
+// VALIDATE DEVICE
 tasks.register("validateDevice") {
     dependsOn "waitForBoot"
 
@@ -358,17 +358,13 @@ tasks.register("validateDevice") {
 
         exec {
             commandLine "bash", "-c", """
-                adb shell pm list instrumentation | grep -q androidJUnitRunner
-                if [[ \$? -ne 0 ]]; then
-                  adb emu kill || true
-                  exit 1
-                fi
+              adb shell pm list instrumentation | grep -q androidJUnitRunner || exit 1
             """
         }
     }
 }
 
-// run tests
+// RUN TESTS
 tasks.register("runInstrumentationTests", Exec) {
     dependsOn "validateDevice"
 
@@ -378,7 +374,7 @@ tasks.register("runInstrumentationTests", Exec) {
             "--stacktrace"
 }
 
-// stop emulator
+// STOP EMULATOR
 tasks.register("stopEmulator") {
     doLast {
         exec {
@@ -388,7 +384,7 @@ tasks.register("stopEmulator") {
     }
 }
 
-// pipeline
+// PIPELINE
 tasks.register("localInstrumentationPipeline") {
     dependsOn "runInstrumentationTests"
     finalizedBy "stopEmulator"
