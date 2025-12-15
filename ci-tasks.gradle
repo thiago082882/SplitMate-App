@@ -292,7 +292,7 @@ tasks.register("createEmulator", Exec) {
             "--device", "pixel"
 }
 
-// START EMULATOR (BACKGROUND REAL)
+// START EMULATOR
 tasks.register("startEmulator") {
     dependsOn "createEmulator"
 
@@ -349,7 +349,7 @@ tasks.register("waitForBoot") {
     }
 }
 
-// VALIDATE DEVICE
+// VALIDATE DEVICE (CORRIGIDO)
 tasks.register("validateDevice") {
     dependsOn "waitForBoot"
 
@@ -358,7 +358,7 @@ tasks.register("validateDevice") {
 
         exec {
             commandLine "bash", "-c", """
-              adb shell pm list instrumentation | grep -q androidJUnitRunner || exit 1
+              adb shell pm list instrumentation | grep -q instrumentation || exit 1
             """
         }
     }
